@@ -1,8 +1,9 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
-#include <GLFW/glfw3.h>
+#include "glfw.h"
 
 void initGlfw();
 
@@ -24,11 +25,17 @@ public:
         glfwDestroyWindow(this->handle);
     }
 
-    inline GLFWwindow* getHandle() {
+    inline GLFWwindow* getHandle() const noexcept {
         return this->handle;
     }
 
-    bool shouldClose() {
+    bool shouldClose() const noexcept {
         return glfwWindowShouldClose(this->handle);
+    }
+
+    VkExtent2D getWindowExtent() const noexcept {
+        int width, height;
+        glfwGetFramebufferSize(this->handle, &width, &height);
+        return {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
     }
 };

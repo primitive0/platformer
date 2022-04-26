@@ -5,9 +5,6 @@ build/
 cmake-build-debug/
 CMakeLists.txt
 
-frag.spv
-vert.spv
-
 .idea/
 
 # MacOS Cache

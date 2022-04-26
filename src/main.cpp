@@ -2,63 +2,64 @@
 #include <stdexcept>
 #include <vector>
 #include <iostream>
+#include <functional>
 
-#define GLFW_INCLUDE_VULKAN
-
-#include <GLFW/glfw3.h>
+#include "glfw.h"
 
 #include "debug.h"
 #include "window.h"
+#include "helper/vulkan.h"
+#include "vulkan.h"
+
 
 void cleanup() {
     terminateGlfw();
 }
 
-int main() {
-    setupDebug();
-
-    initGlfw();
-//    Window window(800, 600, "Vulkan sample");
-
-    VkInstance instance;
-    VkApplicationInfo appInfo{};
-    appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    appInfo.pApplicationName = "Hello Triangle";
-    appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.pEngineName = "No Engine";
-    appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.apiVersion = VK_API_VERSION_1_0;
-
-    VkInstanceCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    createInfo.pApplicationInfo = &appInfo;
-
-    uint32_t glfwExtensionCount = 0;
-    const char** glfwExtensions;
-
-    glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
-    createInfo.enabledExtensionCount = glfwExtensionCount;
-    createInfo.ppEnabledExtensionNames = glfwExtensions;
-
-    createInfo.enabledLayerCount = 0;
-
-    if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create instance!");
-    }
-
-    uint32_t extensionCount = 0;
-    vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-
-    std::vector<VkExtensionProperties> extensions(extensionCount);
-    vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
+void printVulkanAvailableExtensions() {
+    auto vkExtensions = enumerateInstanceExtensionProperties();
 
     std::cout << "available extensions:\n";
 
-    for (const auto& extension : extensions) {
+    for (const auto& extension : vkExtensions) {
         std::cout << '\t' << extension.extensionName << '\n';
     }
+}
 
+int main() {
+    setupDebug();
+
+    printVulkanAvailableExtensions();
+
+    Window window(800, 600, "Vulkan sample");
+
+    if (debugEnabled && !checkValidationLayerSupport()) {
+        throw std::runtime_error("validation layers requested, but not available!");
+    }
+
+    auto instance = createVulkanInstance(VulkanApplicationInfo{
+            .applicationName = "Hello Triangle",
+            .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
+            .engineName = "No Engine",
+            .engineVersion = VK_MAKE_VERSION(1, 0, 0),
+    });
+
+    auto surface = createVulkanSurface(instance, window);
+    auto physicalDevice = findPhysicalDevice(instance, surface);
+    auto device = createVulkanLogicalDevice(physicalDevice);
+
+    auto swapChainCreateDetails = lookupSwapChainCreateDetails(physicalDevice, window);
+
+    auto swapChain = createSwapChain(physicalDevice, device, surface, swapChainCreateDetails);
+
+    uint32_t imageCount;
+    vkGetSwapchainImagesKHR(device, swapChain, &imageCount, nullptr);
+    std::vector<VkImage> swapChainImages(imageCount);
+    vkGetSwapchainImagesKHR(device, swapChain, &imageCount, swapChainImages.data());
+
+    vkDestroySwapchainKHR(device, swapChain, nullptr);
+    vkDestroySurfaceKHR(instance, surface, nullptr);
+    vkDestroyDevice(device, nullptr);
     vkDestroyInstance(instance, nullptr);
 
 //    while (!window.shouldClose()) {
@@ -69,4 +70,3 @@ int main() {
 
     return EXIT_SUCCESS;
 }
-
