@@ -1,0 +1,1 @@
+bool glfwInitialized = false;

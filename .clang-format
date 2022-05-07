@@ -1,0 +1,8 @@
+Standard: c++17
+ColumnLimit: 160
+IndentWidth: 4
+PointerAlignment: Left
+AlignAfterOpenBracket: BlockIndent
+BinPackParameters: false
+BinPackArguments: false
+AccessModifierOffset: -4

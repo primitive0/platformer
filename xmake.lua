@@ -13,6 +13,7 @@ add_requires("glfw", vulkan_sdk_name())
 target("unnamed-platformer")
     set_kind("binary")
     add_files("src/**.cpp")
+--     add_sysincludedirs("include")
     add_packages("glfw", vulkan_sdk_name())
     set_languages("c++17")
     if is_mode("release") then

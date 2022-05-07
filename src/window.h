@@ -5,37 +5,43 @@
 
 #include "glfw.h"
 
-void initGlfw();
-
-void terminateGlfw();
-
 class Window final {
     GLFWwindow* handle;
 
 public:
-    explicit Window(int width, int height, const char* title) {
+    explicit Window(int width, int height, const char* title, bool resizable = false) {
         initGlfw();
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-        this->handle = glfwCreateWindow(width, height, title, nullptr, nullptr);
+        glfwWindowHint(GLFW_RESIZABLE, resizable ? GLFW_TRUE : GLFW_FALSE);
+        handle = glfwCreateWindow(width, height, title, nullptr, nullptr);
+        if (handle == nullptr) {
+            throw std::runtime_error("failed to create window");
+        }
     }
 
-    ~Window() {
-        glfwDestroyWindow(this->handle);
+    void destroy() const noexcept {
+        glfwDestroyWindow(handle);
     }
 
-    inline GLFWwindow* getHandle() const noexcept {
-        return this->handle;
+    GLFWwindow* getHandle() const noexcept {
+        return handle;
     }
 
     bool shouldClose() const noexcept {
-        return glfwWindowShouldClose(this->handle);
+        return glfwWindowShouldClose(handle);
     }
 
     VkExtent2D getWindowExtent() const noexcept {
         int width, height;
-        glfwGetFramebufferSize(this->handle, &width, &height);
+        glfwGetWindowSize(handle, &width, &height);
         return {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
+    }
+
+    std::vector<const char*> getRequiredVulkanExtensions() const {
+        uint32_t count = 0;
+        const char** pExtensions = glfwGetRequiredInstanceExtensions(&count);
+        std::vector<const char*> extensions(pExtensions, pExtensions + count);
+        return extensions;
     }
 };
