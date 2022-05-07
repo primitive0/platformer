@@ -7,7 +7,7 @@ CMakeLists.txt
 
 .idea/
 
-# MacOS Cache
 .DS_Store
 
-
+frag.spv
+vert.spv
