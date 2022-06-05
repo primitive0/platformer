@@ -7,7 +7,6 @@
 #include "glfw.h"
 
 #include "debug.h"
-#include "helper/vulkan/extensions.h"
 #include "math/vec.h"
 #include "sys/vulkan/device.h"
 #include "sys/vulkan/instance.h"

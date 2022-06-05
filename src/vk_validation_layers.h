@@ -5,7 +5,7 @@
 #include <cstring>
 #include <vector>
 
-#include "../../glfw.h"
+#include "glfw.h"
 
 inline constexpr std::array<const char*, 1> VALIDATION_LAYERS = {"VK_LAYER_KHRONOS_validation"};
 
