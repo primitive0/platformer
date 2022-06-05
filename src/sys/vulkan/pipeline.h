@@ -5,6 +5,18 @@
 #include "shaders.h"
 #include "swapchain.h"
 
+struct GraphicsPipelineCreateInfo {
+    Device device{};
+    Shaders shaders{};
+    SwapChain* swapChain = nullptr;
+
+    VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo{};
+
+    GraphicsPipelineCreateInfo() noexcept {
+        vertexInputStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    }
+};
+
 inline VkRenderPass createRenderPass(VkDevice device, const SwapChain& swapChain) {
     VkAttachmentDescription colorAttachment{};
     colorAttachment.format = swapChain.getSurfaceFormat().format;
@@ -63,23 +75,20 @@ inline VkPipelineLayout createPipelineLayout(VkDevice device) {
     return pipelineLayout;
 }
 
-inline VkPipeline createVkPipeline(VkDevice device, VkRenderPass renderPass, VkPipelineLayout pipelineLayout, Shaders shaders, const SwapChain& swapChain) {
+inline VkPipeline createVkPipeline(const GraphicsPipelineCreateInfo& pipelineCreateInfo, VkRenderPass renderPass, VkPipelineLayout pipelineLayout) {
     VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
     vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    vertShaderStageInfo.module = shaders.vertShader;
+    vertShaderStageInfo.module = pipelineCreateInfo.shaders.vertShader;
     vertShaderStageInfo.pName = "main";
 
     VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
     fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    fragShaderStageInfo.module = shaders.fragShader;
+    fragShaderStageInfo.module = pipelineCreateInfo.shaders.fragShader;
     fragShaderStageInfo.pName = "main";
 
     VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
-
-    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
     inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -89,14 +98,14 @@ inline VkPipeline createVkPipeline(VkDevice device, VkRenderPass renderPass, VkP
     VkViewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
-    viewport.width = static_cast<float>(swapChain.getExtent().width);
-    viewport.height = static_cast<float>(swapChain.getExtent().height);
+    viewport.width = static_cast<float>(pipelineCreateInfo.swapChain->getExtent().width);
+    viewport.height = static_cast<float>(pipelineCreateInfo.swapChain->getExtent().height);
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
 
     VkRect2D scissor{};
     scissor.offset = {0, 0};
-    scissor.extent = swapChain.getExtent();
+    scissor.extent = pipelineCreateInfo.swapChain->getExtent();
 
     VkPipelineViewportStateCreateInfo viewportState{};
     viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -144,22 +153,22 @@ inline VkPipeline createVkPipeline(VkDevice device, VkRenderPass renderPass, VkP
     dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
     dynamicState.pDynamicStates = dynamicStates.data();
 
-    VkGraphicsPipelineCreateInfo pipelineInfo{};
-    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipelineInfo.stageCount = 2;
-    pipelineInfo.pStages = shaderStages;
-    pipelineInfo.pVertexInputState = &vertexInputInfo;
-    pipelineInfo.pInputAssemblyState = &inputAssembly;
-    pipelineInfo.pViewportState = &viewportState;
-    pipelineInfo.pRasterizationState = &rasterizer;
-    pipelineInfo.pMultisampleState = &multisampling;
-    pipelineInfo.pColorBlendState = &colorBlending;
-    pipelineInfo.layout = pipelineLayout;
-    pipelineInfo.renderPass = renderPass;
-    pipelineInfo.subpass = 0;
+    VkGraphicsPipelineCreateInfo vkPipelineInfo{};
+    vkPipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    vkPipelineInfo.stageCount = 2;
+    vkPipelineInfo.pStages = shaderStages;
+    vkPipelineInfo.pVertexInputState = &pipelineCreateInfo.vertexInputStateCreateInfo;
+    vkPipelineInfo.pInputAssemblyState = &inputAssembly;
+    vkPipelineInfo.pViewportState = &viewportState;
+    vkPipelineInfo.pRasterizationState = &rasterizer;
+    vkPipelineInfo.pMultisampleState = &multisampling;
+    vkPipelineInfo.pColorBlendState = &colorBlending;
+    vkPipelineInfo.layout = pipelineLayout;
+    vkPipelineInfo.renderPass = renderPass;
+    vkPipelineInfo.subpass = 0;
 
     VkPipeline graphicsPipeline;
-    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
+    if (vkCreateGraphicsPipelines(pipelineCreateInfo.device.getHandle(), VK_NULL_HANDLE, 1, &vkPipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
         throw std::runtime_error("failed to create graphics pipeline");
     }
 
@@ -198,34 +207,58 @@ class GraphicsPipeline {
     VkPipeline pipeline;
     std::vector<VkFramebuffer> framebuffers;
 
-    GraphicsPipeline(VkRenderPass renderPass, VkPipelineLayout pipelineLayout, VkPipeline pipeline, std::vector<VkFramebuffer>&& framebuffers) noexcept
-        : renderPass(renderPass), pipelineLayout(pipelineLayout), pipeline(pipeline), framebuffers(std::move(framebuffers)) {}
-
 public:
     GraphicsPipeline() noexcept : renderPass(), pipelineLayout(), pipeline(), framebuffers() {}
 
-    static GraphicsPipeline create(const Device& device, Shaders shaders, const SwapChain& swapChain) {
-        auto renderPass = createRenderPass(device.getHandle(), swapChain);
-        auto pipelineLayout = createPipelineLayout(device.getHandle());
-        auto pipeline = createVkPipeline(device.getHandle(), renderPass, pipelineLayout, shaders, swapChain);
-        auto framebuffers = createFramebuffers(device.getHandle(), renderPass, swapChain);
-        return {renderPass, pipelineLayout, pipeline, std::move(framebuffers)};
+    GraphicsPipeline(VkRenderPass renderPass, VkPipelineLayout pipelineLayout, VkPipeline pipeline, std::vector<VkFramebuffer>&& framebuffers) noexcept
+        : renderPass(renderPass), pipelineLayout(pipelineLayout), pipeline(pipeline), framebuffers(std::move(framebuffers)) {}
+
+    VkRenderPass getRenderPass() const noexcept {
+        return renderPass;
     }
 
-    VkRenderPass getRenderPass() const noexcept { return renderPass; }
+    VkPipelineLayout getPipelineLayout() const noexcept {
+        return pipelineLayout;
+    }
 
-    VkPipelineLayout getPipelineLayout() const noexcept { return pipelineLayout; }
+    VkPipeline getPipelineHandle() const noexcept {
+        return pipeline;
+    }
 
-    VkPipeline getPipelineHandle() const noexcept { return pipeline; }
+    const std::vector<VkFramebuffer>& getFramebuffers() const noexcept {
+        return framebuffers;
+    }
 
-    const std::vector<VkFramebuffer>& getFramebuffers() const noexcept { return framebuffers; }
-
-    void destroy(const Device& device) const noexcept {
+    void destroy(Device device) const noexcept {
         for (auto framebuffer : framebuffers) {
             vkDestroyFramebuffer(device.getHandle(), framebuffer, nullptr);
         }
         vkDestroyPipeline(device.getHandle(), pipeline, nullptr);
         vkDestroyPipelineLayout(device.getHandle(), pipelineLayout, nullptr);
         vkDestroyRenderPass(device.getHandle(), renderPass, nullptr);
+    }
+};
+
+class GraphicsPipelineBuilder {
+    GraphicsPipelineCreateInfo info{};
+
+public:
+    GraphicsPipelineBuilder(Device device, Shaders shaders, SwapChain& swapChain) noexcept {
+        info.device = device;
+        info.shaders = shaders;
+        info.swapChain = &swapChain;
+    };
+
+    GraphicsPipelineBuilder withVertexInputStateInfo(VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo) noexcept {
+        info.vertexInputStateCreateInfo = vertexInputStateCreateInfo;
+        return *this;
+    }
+
+    GraphicsPipeline create() const {
+        auto renderPass = createRenderPass(info.device.getHandle(), *info.swapChain);
+        auto pipelineLayout = createPipelineLayout(info.device.getHandle());
+        auto pipeline = createVkPipeline(info, renderPass, pipelineLayout);
+        auto framebuffers = createFramebuffers(info.device.getHandle(), renderPass, *info.swapChain);
+        return {renderPass, pipelineLayout, pipeline, std::move(framebuffers)};
     }
 };

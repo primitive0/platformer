@@ -1,20 +1,26 @@
+#include <cmath>
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
+#include <sys/time.h>
 
 #include "glfw.h"
 
 #include "debug.h"
 #include "helper/vulkan/extensions.h"
+#include "math/vec.h"
 #include "sys/vulkan/device.h"
 #include "sys/vulkan/instance.h"
+#include "sys/vulkan/mem_buffer.h"
 #include "sys/vulkan/pipeline.h"
 #include "sys/vulkan/shaders.h"
 #include "sys/vulkan/surface.h"
 #include "sys/vulkan/swapchain.h"
 #include "window.h"
 
-void cleanup() { terminateGlfw(); }
+void cleanup() {
+    terminateGlfw();
+}
 
 void printVulkanAvailableExtensions() {
     auto vkExtensions = enumerateInstanceExtensionProperties();
@@ -26,13 +32,45 @@ void printVulkanAvailableExtensions() {
     }
 }
 
+struct Vertex {
+    Vec2 pos;
+    Vec3 color;
+
+    constexpr static VkVertexInputBindingDescription getBindingDescription() {
+        VkVertexInputBindingDescription bindingDescription{};
+        bindingDescription.binding = 0;
+        bindingDescription.stride = sizeof(Vertex);
+        bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+        return bindingDescription;
+    }
+
+    constexpr static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
+        std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
+
+        attributeDescriptions[0].binding = 0;
+        attributeDescriptions[0].location = 0;
+        attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+        attributeDescriptions[0].offset = offsetof(Vertex, pos);
+
+        attributeDescriptions[1].binding = 0;
+        attributeDescriptions[1].location = 1;
+        attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+        attributeDescriptions[1].offset = offsetof(Vertex, color);
+
+        return attributeDescriptions;
+    }
+};
+
 void recordCommandBuffer(
     VkPipeline graphicsPipeline,
     VkExtent2D swapChainExtent,
     const std::vector<VkFramebuffer>& framebuffers,
     VkRenderPass renderPass,
     VkCommandBuffer commandBuffer,
-    uint32_t imageIndex
+    uint32_t imageIndex,
+    VkBuffer vertexBuffer,
+    VkBuffer indexBuffer
 ) {
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -55,7 +93,15 @@ void recordCommandBuffer(
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-    vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+
+    VkBuffer vertexBuffers[] = {vertexBuffer};
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+
+    vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+
+    vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
+
     vkCmdEndRenderPass(commandBuffer);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
@@ -65,7 +111,56 @@ void recordCommandBuffer(
 
 bool framebufferResized = false;
 
+ulong unixMs() {
+    timeval tv{};
+    gettimeofday(&tv, nullptr);
+    return tv.tv_sec * 1000 + tv.tv_usec / 1000;
+}
+
+void copyBuffer(
+    const PhysicalDevice& physicalDevice, //
+    Device device,
+    VkCommandPool commandPool,
+    VkQueue graphicsQueue,
+    VkBuffer srcBuffer,
+    VkBuffer dstBuffer,
+    VkDeviceSize size
+) {
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool = commandPool;
+    allocInfo.commandBufferCount = 1;
+
+    VkCommandBuffer commandBuffer;
+    vkAllocateCommandBuffers(device.getHandle(), &allocInfo, &commandBuffer);
+
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+    VkBufferCopy copyRegion{};
+    copyRegion.size = size;
+    vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+
+    vkEndCommandBuffer(commandBuffer);
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+
+    vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(graphicsQueue);
+
+    vkFreeCommandBuffers(device.getHandle(), commandPool, 1, &commandBuffer);
+}
+
 int main() {
+    auto start = unixMs();
+
     setupDebug();
 
     printVulkanAvailableExtensions();
@@ -99,27 +194,76 @@ int main() {
 
     auto shaders = Shaders::loadShaders(device);
 
-    VkCommandPool commandPool = device.createCommandPool(physicalDevice.familyIndices.graphicsFamily);
+    auto commandPool = device.createCommandPool(physicalDevice.familyIndices.graphicsFamily);
     if (commandPool == VK_NULL_HANDLE) {
         throw std::runtime_error("failed to create command pool");
     }
 
-    VkCommandBuffer commandBuffer = device.allocateCommandBuffer(commandPool);
+    auto commandBuffer = device.allocateCommandBuffer(commandPool);
     if (commandBuffer == VK_NULL_HANDLE) {
         throw std::runtime_error("failed to allocate command buffer");
     }
 
-    VkSemaphore imageAvailableSemaphore = device.createSemaphore();
-    VkSemaphore renderFinishedSemaphore = device.createSemaphore();
-    VkFence inFlightFence = device.createFence();
+    auto imageAvailableSemaphore = device.createSemaphore();
+    auto renderFinishedSemaphore = device.createSemaphore();
+    auto inFlightFence = device.createFence();
     if (imageAvailableSemaphore == VK_NULL_HANDLE || renderFinishedSemaphore == VK_NULL_HANDLE || inFlightFence == VK_NULL_HANDLE) {
         throw std::runtime_error("failed to create semaphores");
     }
+
+    std::array<Vertex, 4> vertices = {
+        Vertex({{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}}),
+        Vertex({{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}}),
+        Vertex({{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}),
+        Vertex({{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}),
+    };
+
+    std::array<uint16_t, 6> indices = {0, 1, 2, 2, 3, 0};
+
+    auto stagingBuffer = MemBuffer::create(
+        physicalDevice.handle, //
+        device,
+        sizeof(uint16_t) * indices.size(),
+        MemBufferTransferDir::SOURCE,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+    );
+
+    {
+        void* data = stagingBuffer.mapMemory(device);
+        memcpy(data, indices.data(), static_cast<size_t>(stagingBuffer.size()));
+        stagingBuffer.unmapMemory(device);
+    }
+
+    auto indexBuffer = MemBuffer::createIndex(
+        physicalDevice.handle, //
+        device,
+        stagingBuffer.size(),
+        MemBufferTransferDir::DESTINATION,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+    );
+
+    copyBuffer(physicalDevice, device, commandPool, graphicsQueue, stagingBuffer.buffer(), indexBuffer.buffer(), stagingBuffer.size());
+
+    stagingBuffer.destroy(device);
+
+    auto vertexBuffer = MemBuffer::createVertex(
+        physicalDevice.handle,
+        device,
+        sizeof(Vertex) * vertices.size(),
+        MemBufferTransferDir::NONE,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+    );
 
     SwapChain swapChain;
     GraphicsPipeline graphicsPipeline;
 
 createSwapChain:
+    VkExtent2D windowExtent = window.getWindowExtent();
+    while (windowExtent.width == 0 || windowExtent.height == 0) {
+        glfwWaitEvents();
+        windowExtent = window.getWindowExtent();
+    }
+
     device.waitIdle();
 
     if (swapChain.getSwapChainHandle() != VK_NULL_HANDLE) {
@@ -128,7 +272,17 @@ createSwapChain:
     }
 
     swapChain = SwapChain::create(physicalDevice, device, window, surface);
-    graphicsPipeline = GraphicsPipeline::create(device, shaders, swapChain);
+
+    auto bindingDescription = Vertex::getBindingDescription();
+    auto attributeDescriptions = Vertex::getAttributeDescriptions();
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vertexInputInfo.vertexBindingDescriptionCount = 1;
+    vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+    vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+
+    graphicsPipeline = GraphicsPipelineBuilder(device, shaders, swapChain).withVertexInputStateInfo(vertexInputInfo).create();
 
     while (!window.shouldClose()) {
         glfwPollEvents();
@@ -152,6 +306,18 @@ createSwapChain:
 
         vkResetFences(device.getHandle(), 1, &inFlightFence);
 
+        auto elapsed = static_cast<double>(unixMs() - start);
+        auto y = static_cast<float>(sin(elapsed * 0.001));
+        y = std::abs(y);
+        vertices[0].color = {y, 0.0f, 0.0f};
+        vertices[1].color = {0.0f, y, 0.0f};
+        vertices[2].color = {0.0f, 0.0f, y};
+        vertices[3].color = {y, y, y};
+
+        void* data = vertexBuffer.mapMemory(device);
+        memcpy(data, vertices.data(), static_cast<size_t>(vertexBuffer.size()));
+        vertexBuffer.unmapMemory(device);
+
         vkResetCommandBuffer(commandBuffer, 0);
         recordCommandBuffer(
             graphicsPipeline.getPipelineHandle(),
@@ -159,7 +325,9 @@ createSwapChain:
             graphicsPipeline.getFramebuffers(),
             graphicsPipeline.getRenderPass(),
             commandBuffer,
-            imageIndex
+            imageIndex,
+            vertexBuffer.buffer(),
+            indexBuffer.buffer()
         );
 
         VkSemaphore waitSemaphores[] = {imageAvailableSemaphore};
@@ -206,6 +374,8 @@ createSwapChain:
 
     graphicsPipeline.destroy(device);
     swapChain.destroy(device);
+    vertexBuffer.destroy(device);
+    indexBuffer.destroy(device);
     device.destroySemaphore(imageAvailableSemaphore);
     device.destroySemaphore(renderFinishedSemaphore);
     device.destroyFence(inFlightFence);

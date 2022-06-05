@@ -15,9 +15,11 @@ class Device {
 private:
     VkDevice handle;
 
+public:
+    Device() noexcept : handle(VK_NULL_HANDLE) {}
+
     explicit Device(VkDevice device) noexcept : handle(device) {}
 
-public:
     static Device create(const PhysicalDevice& physicalDevice) {
         VkPhysicalDeviceFeatures deviceFeatures{};
 
@@ -48,7 +50,9 @@ public:
         }
     }
 
-    VkDevice getHandle() const noexcept { return handle; }
+    VkDevice getHandle() const noexcept {
+        return handle;
+    }
 
     VkShaderModule createShaderModule(const std::vector<char>& code) const {
         if (code.size() % 4 != 0) {
@@ -127,7 +131,25 @@ public:
         vkDestroySemaphore(handle, semaphore, nullptr);
     }
 
-    void waitIdle() const noexcept { vkDeviceWaitIdle(handle); }
+    VkBuffer createBuffer(const VkBufferCreateInfo& info) {
+        VkBuffer buffer = VK_NULL_HANDLE;
+        vkCreateBuffer(handle, &info, nullptr, &buffer);
+        return buffer;
+    }
 
-    void destroy() const noexcept { vkDestroyDevice(handle, nullptr); }
+    void destroyBuffer(VkBuffer buffer) const noexcept {
+        vkDestroyBuffer(handle, buffer, nullptr);
+    }
+
+    void freeMemory(VkDeviceMemory memory) const noexcept {
+        vkFreeMemory(handle, memory, nullptr);
+    }
+
+    void waitIdle() const noexcept {
+        vkDeviceWaitIdle(handle);
+    }
+
+    void destroy() const noexcept {
+        vkDestroyDevice(handle, nullptr);
+    }
 };

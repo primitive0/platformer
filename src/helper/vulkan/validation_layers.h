@@ -1,15 +1,13 @@
 #pragma once
 
 #include <array>
-#include <vector>
 #include <cstdint>
 #include <cstring>
+#include <vector>
 
 #include "../../glfw.h"
 
-inline constexpr std::array<const char*, 1> VALIDATION_LAYERS = {
-    "VK_LAYER_KHRONOS_validation"
-};
+inline constexpr std::array<const char*, 1> VALIDATION_LAYERS = {"VK_LAYER_KHRONOS_validation"};
 
 inline bool checkValidationLayerSupport() {
     uint32_t layerCount;

@@ -18,11 +18,12 @@ struct QueueFamilyIndices {
 };
 
 struct SwapChainSupportDetails {
-    VkSurfaceCapabilitiesKHR capabilities{};
     std::vector<VkSurfaceFormatKHR> formats{};
     std::vector<VkPresentModeKHR> presentModes{};
 
-    bool isUsable() const noexcept { return !formats.empty() && !presentModes.empty(); }
+    bool isUsable() const noexcept {
+        return !formats.empty() && !presentModes.empty();
+    }
 };
 
 struct PhysicalDevice {
@@ -86,8 +87,7 @@ inline std::optional<QueueFamilyIndices> findQueueFamilies(VkPhysicalDevice devi
         }
 
         if (graphicsFamily.has_value() && presentFamily.has_value()) {
-            QueueFamilyIndices indices(graphicsFamily.value(), presentFamily.value());
-            return indices;
+            return QueueFamilyIndices(graphicsFamily.value(), presentFamily.value());
         }
 
         i++;
@@ -98,8 +98,6 @@ inline std::optional<QueueFamilyIndices> findQueueFamilies(VkPhysicalDevice devi
 
 inline SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device, VkSurfaceKHR surface) {
     SwapChainSupportDetails details{};
-
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
 
     uint32_t formatCount;
     vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, nullptr);

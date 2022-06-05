@@ -1,7 +1,7 @@
 #pragma once
 
-#include <vector>
 #include <fstream>
+#include <vector>
 
 #include "device.h"
 
@@ -26,7 +26,11 @@ struct Shaders {
     VkShaderModule vertShader;
     VkShaderModule fragShader;
 
-    static Shaders loadShaders(const Device& device) {
+    Shaders() noexcept : vertShader(VK_NULL_HANDLE), fragShader(VK_NULL_HANDLE) {}
+
+    Shaders(VkShaderModule vertShader, VkShaderModule fragShader) noexcept : vertShader(vertShader), fragShader(fragShader) {}
+
+    static Shaders loadShaders(Device device) {
         auto vertShaderCode = readFile("vert.spv");
         VkShaderModule vertShader = device.createShaderModule(vertShaderCode);
         auto fragShaderCode = readFile("frag.spv");
@@ -34,7 +38,7 @@ struct Shaders {
         return {vertShader, fragShader};
     }
 
-    void destroy(const Device& device) const noexcept {
+    void destroy(Device device) const noexcept {
         vkDestroyShaderModule(device.getHandle(), vertShader, nullptr);
         vkDestroyShaderModule(device.getHandle(), fragShader, nullptr);
     }

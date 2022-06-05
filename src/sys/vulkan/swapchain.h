@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <functional>
 #include <optional>
 #include <stdexcept>
@@ -37,20 +38,24 @@ inline VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities,
 }
 
 struct SwapChainProperties {
+    VkSurfaceCapabilitiesKHR surfaceCapabilities;
     VkSurfaceFormatKHR surfaceFormat;
     VkPresentModeKHR presentMode;
     VkExtent2D extent;
 };
 
-inline SwapChainProperties getSwapChainProperties(const PhysicalDevice& physicalDevice, const Window& window) {
+inline SwapChainProperties getSwapChainProperties(const PhysicalDevice& physicalDevice, const Window& window, VkSurfaceKHR surface) {
+    VkSurfaceCapabilitiesKHR surfaceCapabilities;
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice.handle, surface, &surfaceCapabilities);
+
     auto result = chooseSwapSurfaceFormat(physicalDevice.swapChainSupportDetails.formats);
     if (!result.has_value()) {
         throw std::runtime_error("failed to find suitable surface format");
     }
     auto surfaceFormat = result.value();
     auto presentMode = chooseSwapPresentMode(physicalDevice.swapChainSupportDetails.presentModes);
-    auto extent = chooseSwapExtent(physicalDevice.swapChainSupportDetails.capabilities, window.getWindowExtent());
-    return {surfaceFormat, presentMode, extent};
+    auto extent = chooseSwapExtent(surfaceCapabilities, window.getWindowExtent());
+    return {surfaceCapabilities, surfaceFormat, presentMode, extent};
 }
 
 inline VkSwapchainKHR createSwapChain(const PhysicalDevice& physicalDevice, VkDevice device, VkSurfaceKHR surface, SwapChainProperties properties) {
@@ -58,9 +63,9 @@ inline VkSwapchainKHR createSwapChain(const PhysicalDevice& physicalDevice, VkDe
 
     auto& supportDetails = physicalDevice.swapChainSupportDetails;
 
-    uint32_t imageCount = supportDetails.capabilities.minImageCount + 1;
-    if (supportDetails.capabilities.maxImageCount > 0 && imageCount > supportDetails.capabilities.maxImageCount) {
-        imageCount = supportDetails.capabilities.maxImageCount;
+    uint32_t imageCount = properties.surfaceCapabilities.minImageCount + 1;
+    if (properties.surfaceCapabilities.maxImageCount > 0 && imageCount > properties.surfaceCapabilities.maxImageCount) {
+        imageCount = properties.surfaceCapabilities.maxImageCount;
     }
 
     VkSwapchainCreateInfoKHR createInfo{};
@@ -85,7 +90,7 @@ inline VkSwapchainKHR createSwapChain(const PhysicalDevice& physicalDevice, VkDe
         createInfo.pQueueFamilyIndices = queueFamilyIndices;
     }
 
-    createInfo.preTransform = supportDetails.capabilities.currentTransform;
+    createInfo.preTransform = properties.surfaceCapabilities.currentTransform;
     createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
     createInfo.presentMode = properties.presentMode;
     createInfo.clipped = VK_TRUE;
@@ -148,9 +153,8 @@ class SwapChain {
 public:
     SwapChain() noexcept : swapChain(VK_NULL_HANDLE), surfaceFormat(), presentMode(), extent(), imageViews() {}
 
-    static SwapChain create(PhysicalDevice& physicalDevice, const Device& device, const Window& window, VkSurfaceKHR surface) {
-        physicalDevice.swapChainSupportDetails = querySwapChainSupport(physicalDevice.handle, surface);
-        auto swapChainProperties = getSwapChainProperties(physicalDevice, window);
+    static SwapChain create(PhysicalDevice& physicalDevice, Device device, const Window& window, VkSurfaceKHR surface) {
+        auto swapChainProperties = getSwapChainProperties(physicalDevice, window, surface);
         auto swapChain = createSwapChain(physicalDevice, device.getHandle(), surface, swapChainProperties);
         auto swapChainImages = getSwapChainImages(device.getHandle(), swapChain);
         auto swapChainImageViews = createImageViews(device.getHandle(), swapChainImages, swapChainProperties);
@@ -163,17 +167,27 @@ public:
         };
     }
 
-    VkSwapchainKHR getSwapChainHandle() const noexcept { return swapChain; }
+    VkSwapchainKHR getSwapChainHandle() const noexcept {
+        return swapChain;
+    }
 
-    VkSurfaceFormatKHR getSurfaceFormat() const noexcept { return surfaceFormat; }
+    VkSurfaceFormatKHR getSurfaceFormat() const noexcept {
+        return surfaceFormat;
+    }
 
-    VkPresentModeKHR getPresentMode() const noexcept { return presentMode; }
+    VkPresentModeKHR getPresentMode() const noexcept {
+        return presentMode;
+    }
 
-    VkExtent2D getExtent() const noexcept { return extent; }
+    VkExtent2D getExtent() const noexcept {
+        return extent;
+    }
 
-    const std::vector<VkImageView>& getImageViews() const noexcept { return imageViews; }
+    const std::vector<VkImageView>& getImageViews() const noexcept {
+        return imageViews;
+    }
 
-    void destroy(const Device& device) const noexcept {
+    void destroy(Device device) const noexcept {
         for (auto imageView : imageViews) {
             vkDestroyImageView(device.getHandle(), imageView, nullptr);
         }
