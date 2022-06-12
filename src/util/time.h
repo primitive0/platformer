@@ -24,5 +24,12 @@ uint64_t unixMs() {
     return static_cast<uint64_t>(sysTime);
 }
 #else
-#error Your platform is not supported
+#include <cstdint>
+#include <chrono>
+
+uint64_t unixMs() {
+    auto clock = std::chrono::system_clock::now();
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(clock.time_since_epoch()).count();
+    return static_cast<uint64_t>(ms);
+}
 #endif
