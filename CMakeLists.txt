@@ -1,9 +1,10 @@
 cmake_minimum_required(VERSION 3.22)
-
 project(unnamed-platformer)
+
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+include(glfw)
+
 find_package(Vulkan REQUIRED)
-find_package(PkgConfig REQUIRED)
-pkg_search_module(GLFW REQUIRED glfw3)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -13,7 +14,14 @@ file(GLOB_RECURSE MyTarget_SRC
         "src/*.cpp")
 
 add_executable(MyTarget ${MyTarget_SRC})
+if(BUILD_GLFW)
+        add_dependencies(MyTarget glfw)
+endif()
+
+target_include_directories(MyTarget
+        PUBLIC ${GLFW_INCLUDE_DIR}
+        PUBLIC ${Vulkan_INCLUDE_DIRS})
 
 target_link_libraries(MyTarget
         PUBLIC ${Vulkan_LIBRARIES}
-        PUBLIC ${GLFW_STATIC_LIBRARIES})
+        PUBLIC ${GLFW_LIBRARIES})
