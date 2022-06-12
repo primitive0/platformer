@@ -70,6 +70,8 @@ struct Vertex {
     Vec2 pos;
     Vec3 color;
 
+    Vertex(Vec2 pos, Vec3 color) : pos(pos), color(color) {}
+
     constexpr static VkVertexInputBindingDescription getBindingDescription() {
         VkVertexInputBindingDescription bindingDescription{};
         bindingDescription.binding = 0;
@@ -320,20 +322,20 @@ public:
         return self;
     }
 
-    void render(const World& world) {
+    bool render(const World& world) {
         device.waitForFence(inFlightFence);
 
         vertices.clear();
 
         int i = 0;
         for (const auto& object : world.objects) {
-            auto x0 = static_cast<float>(object.x0);
-            auto x1 = static_cast<float>(object.x1);
+            auto _x0 = static_cast<float>(object.x0);
+            auto _x1 = static_cast<float>(object.x1);
             auto _y0 = static_cast<float>(object.y0);
             auto _y1 = static_cast<float>(object.y1);
 
-            x0 = 2.0f / 1000.0f * x0 - 1.0f;
-            x1 = 2.0f / 1000.0f * x1 - 1.0f;
+            auto x0 = 2.0f / 1000.0f * _x0 - 1.0f;
+            auto x1 = 2.0f / 1000.0f * _x1 - 1.0f;
             auto y0 = 1.0f - 2.0f / 1000.0f * _y1;
             auto y1 = 1.0f - 2.0f / 1000.0f * _y0;
 
@@ -343,10 +345,10 @@ public:
             } else {
                 fillColor = {0.0f, 0.0f, 0.0f};
             }
-            auto x0y0 = Vertex({{x0, y0}, fillColor});
-            auto x1y0 = Vertex({{x1, y0}, fillColor});
-            auto x1y1 = Vertex({{x1, y1}, fillColor});
-            auto x0y1 = Vertex({{x0, y1}, fillColor});
+            auto x0y0 = Vertex({x0, y0}, fillColor);
+            auto x1y0 = Vertex({x1, y0}, fillColor);
+            auto x1y1 = Vertex({x1, y1}, fillColor);
+            auto x0y1 = Vertex({x0, y1}, fillColor);
             vertices.push_back(x0y0);
             vertices.push_back(x1y0);
             vertices.push_back(x1y1);
@@ -387,6 +389,11 @@ public:
         }
 
     renderStart:
+        VkExtent2D windowExtent = window.getWindowExtent();
+        if (windowExtent.width == 0 || windowExtent.height == 0) {
+            return false;
+        }
+
         uint32_t imageIndex;
         VkResult result = vkAcquireNextImageKHR(
             device.getHandle(),
@@ -444,6 +451,8 @@ public:
         } else if (result != VK_SUCCESS) {
             throw std::runtime_error("failed to present swap chain image!");
         }
+
+        return true;
     }
 
     void destroy() {

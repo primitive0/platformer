@@ -16,7 +16,7 @@ public:
         return handle;
     }
 
-    void submit(const VkSubmitInfo& info, VkFence fence) const noexcept {
+    void submit(const VkSubmitInfo& info, VkFence fence) const {
         VkResult result = vkQueueSubmit(handle, 1, &info, fence);
         if (result != VK_SUCCESS) {
             throw std::runtime_error("failed to submit draw command buffer");
