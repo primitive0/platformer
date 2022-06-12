@@ -1,5 +1,6 @@
 #pragma once
 
+#include "device_queue.h"
 #include "physical_device.h"
 
 inline constexpr float DEFAULT_QUEUE_PRIORITY = 1.0f;
@@ -22,6 +23,7 @@ public:
 
     static Device create(const PhysicalDevice& physicalDevice) {
         VkPhysicalDeviceFeatures deviceFeatures{};
+        deviceFeatures.wideLines = true; // TODO: check for availability
 
         VkDeviceCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -71,10 +73,10 @@ public:
         return shaderModule;
     }
 
-    VkQueue getDeviceQueue(uint32_t queueFamilyIndex) const noexcept {
+    DeviceQueue getDeviceQueue(uint32_t queueFamilyIndex) const noexcept {
         VkQueue queue = VK_NULL_HANDLE;
         vkGetDeviceQueue(handle, queueFamilyIndex, 0, &queue);
-        return queue;
+        return DeviceQueue(queue);
     }
 
     VkCommandPool createCommandPool(uint32_t familyIndex) const noexcept {
@@ -112,6 +114,14 @@ public:
         VkFence fence = VK_NULL_HANDLE;
         vkCreateFence(handle, &fenceInfo, nullptr, &fence);
         return fence;
+    }
+
+    void waitForFence(VkFence fence) const noexcept {
+        vkWaitForFences(handle, 1, &fence, VK_TRUE, NUM_MAX<uint64_t>);
+    }
+
+    void resetFence(VkFence fence) const noexcept {
+        vkResetFences(handle, 1, &fence);
     }
 
     void destroyFence(VkFence fence) const noexcept {

@@ -21,7 +21,7 @@ enum class MemBufferTransferDir {
     NONE,
 };
 
-constexpr VkBufferUsageFlags combineWithTransferFlags(VkBufferUsageFlags flags, MemBufferTransferDir direction) {
+constexpr VkBufferUsageFlags combineWithTransferFlags(VkBufferUsageFlags flags, MemBufferTransferDir direction) noexcept {
     switch (direction) {
     case MemBufferTransferDir::SOURCE:
         flags |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;

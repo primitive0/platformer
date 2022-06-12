@@ -30,10 +30,10 @@ struct Shaders {
 
     Shaders(VkShaderModule vertShader, VkShaderModule fragShader) noexcept : vertShader(vertShader), fragShader(fragShader) {}
 
-    static Shaders loadShaders(Device device) {
-        auto vertShaderCode = readFile("vert.spv");
+    static Shaders loadShaders(Device device, const std::string& vertexShaderFileName, const std::string& fragmentShaderFileName) {
+        auto vertShaderCode = readFile(vertexShaderFileName);
         VkShaderModule vertShader = device.createShaderModule(vertShaderCode);
-        auto fragShaderCode = readFile("frag.spv");
+        auto fragShaderCode = readFile(fragmentShaderFileName);
         VkShaderModule fragShader = device.createShaderModule(fragShaderCode);
         return {vertShader, fragShader};
     }

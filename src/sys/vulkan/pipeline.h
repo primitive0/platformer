@@ -4,63 +4,24 @@
 
 #include "shaders.h"
 #include "swapchain.h"
+#include "render_pass.h"
 
 struct GraphicsPipelineCreateInfo {
     Device device{};
     Shaders shaders{};
     SwapChain* swapChain = nullptr;
+    RenderPass* renderPass = nullptr;
 
     VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo{};
+    VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateCreateInfo{};
+
+    float lineWidth = 1.0f;
 
     GraphicsPipelineCreateInfo() noexcept {
         vertexInputStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+        inputAssemblyStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
     }
 };
-
-inline VkRenderPass createRenderPass(VkDevice device, const SwapChain& swapChain) {
-    VkAttachmentDescription colorAttachment{};
-    colorAttachment.format = swapChain.getSurfaceFormat().format;
-    colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-    VkAttachmentReference colorAttachmentRef{};
-    colorAttachmentRef.attachment = 0;
-    colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-    VkSubpassDescription subpass{};
-    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpass.colorAttachmentCount = 1;
-    subpass.pColorAttachments = &colorAttachmentRef;
-
-    VkSubpassDependency dependency{};
-    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-    dependency.dstSubpass = 0;
-    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency.srcAccessMask = 0;
-    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-    VkRenderPassCreateInfo renderPassInfo{};
-    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    renderPassInfo.attachmentCount = 1;
-    renderPassInfo.pAttachments = &colorAttachment;
-    renderPassInfo.subpassCount = 1;
-    renderPassInfo.pSubpasses = &subpass;
-    renderPassInfo.dependencyCount = 1;
-    renderPassInfo.pDependencies = &dependency;
-
-    VkRenderPass renderPass;
-    if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create render pass");
-    }
-
-    return renderPass;
-}
 
 inline VkPipelineLayout createPipelineLayout(VkDevice device) {
     VkPipelineLayout pipelineLayout;
@@ -90,11 +51,6 @@ inline VkPipeline createVkPipeline(const GraphicsPipelineCreateInfo& pipelineCre
 
     VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
-    VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
-    inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    inputAssembly.primitiveRestartEnable = VK_FALSE;
-
     VkViewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
@@ -119,7 +75,7 @@ inline VkPipeline createVkPipeline(const GraphicsPipelineCreateInfo& pipelineCre
     rasterizer.depthClampEnable = VK_FALSE;
     rasterizer.rasterizerDiscardEnable = VK_FALSE;
     rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
-    rasterizer.lineWidth = 1.0f;
+    rasterizer.lineWidth = pipelineCreateInfo.lineWidth;
     rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
     rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
     rasterizer.depthBiasEnable = VK_FALSE;
@@ -158,7 +114,7 @@ inline VkPipeline createVkPipeline(const GraphicsPipelineCreateInfo& pipelineCre
     vkPipelineInfo.stageCount = 2;
     vkPipelineInfo.pStages = shaderStages;
     vkPipelineInfo.pVertexInputState = &pipelineCreateInfo.vertexInputStateCreateInfo;
-    vkPipelineInfo.pInputAssemblyState = &inputAssembly;
+    vkPipelineInfo.pInputAssemblyState = &pipelineCreateInfo.inputAssemblyStateCreateInfo;
     vkPipelineInfo.pViewportState = &viewportState;
     vkPipelineInfo.pRasterizationState = &rasterizer;
     vkPipelineInfo.pMultisampleState = &multisampling;
@@ -175,67 +131,25 @@ inline VkPipeline createVkPipeline(const GraphicsPipelineCreateInfo& pipelineCre
     return graphicsPipeline;
 }
 
-inline std::vector<VkFramebuffer> createFramebuffers(VkDevice device, VkRenderPass renderPass, const SwapChain& swapChain) {
-    const auto& imageViews = swapChain.getImageViews();
-
-    std::vector<VkFramebuffer> framebuffers;
-    framebuffers.resize(imageViews.size());
-
-    for (size_t i = 0; i < imageViews.size(); i++) {
-        VkImageView attachments[] = {imageViews[i]};
-
-        VkFramebufferCreateInfo framebufferInfo{};
-        framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        framebufferInfo.renderPass = renderPass;
-        framebufferInfo.attachmentCount = 1;
-        framebufferInfo.pAttachments = attachments;
-        framebufferInfo.width = swapChain.getExtent().width;
-        framebufferInfo.height = swapChain.getExtent().height;
-        framebufferInfo.layers = 1;
-
-        if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &framebuffers[i]) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create framebuffer");
-        }
-    }
-
-    return framebuffers;
-}
-
 class GraphicsPipeline {
-    VkRenderPass renderPass;
-    VkPipelineLayout pipelineLayout;
-    VkPipeline pipeline;
-    std::vector<VkFramebuffer> framebuffers;
+    VkPipelineLayout hPipelineLayout;
+    VkPipeline hPipeline;
 
 public:
-    GraphicsPipeline() noexcept : renderPass(), pipelineLayout(), pipeline(), framebuffers() {}
+    GraphicsPipeline() : hPipelineLayout(VK_NULL_HANDLE), hPipeline(VK_NULL_HANDLE) {}
 
-    GraphicsPipeline(VkRenderPass renderPass, VkPipelineLayout pipelineLayout, VkPipeline pipeline, std::vector<VkFramebuffer>&& framebuffers) noexcept
-        : renderPass(renderPass), pipelineLayout(pipelineLayout), pipeline(pipeline), framebuffers(std::move(framebuffers)) {}
+    GraphicsPipeline(VkPipelineLayout pipelineLayout, VkPipeline pipeline) : hPipelineLayout(pipelineLayout), hPipeline(pipeline) {}
 
-    VkRenderPass getRenderPass() const noexcept {
-        return renderPass;
+    VkPipelineLayout pipelineLayout() const noexcept {
+        return hPipelineLayout;
     }
 
-    VkPipelineLayout getPipelineLayout() const noexcept {
-        return pipelineLayout;
+    VkPipeline pipeline() const noexcept {
+        return hPipeline;
     }
-
-    VkPipeline getPipelineHandle() const noexcept {
-        return pipeline;
-    }
-
-    const std::vector<VkFramebuffer>& getFramebuffers() const noexcept {
-        return framebuffers;
-    }
-
     void destroy(Device device) const noexcept {
-        for (auto framebuffer : framebuffers) {
-            vkDestroyFramebuffer(device.getHandle(), framebuffer, nullptr);
-        }
-        vkDestroyPipeline(device.getHandle(), pipeline, nullptr);
-        vkDestroyPipelineLayout(device.getHandle(), pipelineLayout, nullptr);
-        vkDestroyRenderPass(device.getHandle(), renderPass, nullptr);
+        vkDestroyPipeline(device.getHandle(), hPipeline, nullptr);
+        vkDestroyPipelineLayout(device.getHandle(), hPipelineLayout, nullptr);
     }
 };
 
@@ -243,10 +157,11 @@ class GraphicsPipelineBuilder {
     GraphicsPipelineCreateInfo info{};
 
 public:
-    GraphicsPipelineBuilder(Device device, Shaders shaders, SwapChain& swapChain) noexcept {
+    GraphicsPipelineBuilder(Device device, Shaders shaders, SwapChain& swapChain, RenderPass& renderPass) noexcept {
         info.device = device;
         info.shaders = shaders;
         info.swapChain = &swapChain;
+        info.renderPass = &renderPass;
     };
 
     GraphicsPipelineBuilder withVertexInputStateInfo(VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo) noexcept {
@@ -254,11 +169,27 @@ public:
         return *this;
     }
 
+    GraphicsPipelineBuilder withInputAssemblyStateInfo(VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateCreateInfo) noexcept {
+        info.inputAssemblyStateCreateInfo = inputAssemblyStateCreateInfo;
+        return *this;
+    }
+
+    GraphicsPipelineBuilder withRasterizerLineWidth(float lineWidth) noexcept {
+        info.lineWidth = lineWidth;
+        return *this;
+    }
+
     GraphicsPipeline create() const {
-        auto renderPass = createRenderPass(info.device.getHandle(), *info.swapChain);
         auto pipelineLayout = createPipelineLayout(info.device.getHandle());
-        auto pipeline = createVkPipeline(info, renderPass, pipelineLayout);
-        auto framebuffers = createFramebuffers(info.device.getHandle(), renderPass, *info.swapChain);
-        return {renderPass, pipelineLayout, pipeline, std::move(framebuffers)};
+        auto pipeline = createVkPipeline(info, info.renderPass->renderPass(), pipelineLayout);
+        return {pipelineLayout, pipeline};
     }
 };
+
+inline VkPipelineInputAssemblyStateCreateInfo createInputAssemblyStateInfo(VkPrimitiveTopology topology) noexcept {
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
+    inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    inputAssembly.topology = topology;
+    inputAssembly.primitiveRestartEnable = VK_FALSE;
+    return inputAssembly;
+}

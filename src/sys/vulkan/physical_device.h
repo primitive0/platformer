@@ -31,6 +31,8 @@ struct PhysicalDevice {
     QueueFamilyIndices familyIndices;
     SwapChainSupportDetails swapChainSupportDetails;
 
+    PhysicalDevice() noexcept : handle(VK_NULL_HANDLE), familyIndices({}), swapChainSupportDetails({}) {}
+
     PhysicalDevice(VkPhysicalDevice handle, QueueFamilyIndices familyIndices, SwapChainSupportDetails&& swapChainSupportDetails) noexcept
         : handle(handle), familyIndices(familyIndices), swapChainSupportDetails(std::move(swapChainSupportDetails)) {}
 };
@@ -124,6 +126,8 @@ inline PhysicalDevice findPhysicalDevice(VkInstance instance, VkSurfaceKHR surfa
             VkPhysicalDeviceFeatures deviceFeatures;
             vkGetPhysicalDeviceProperties(device, &deviceProperties);
             vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+
+            // TODO: print about all available features
 
             if (!(deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU && deviceFeatures.geometryShader)) {
                 continue;
