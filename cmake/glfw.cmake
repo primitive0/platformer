@@ -8,7 +8,15 @@ else()
 
     set(BUILD_GLFW 1)
 
-    ExternalProject_Add(glfw PREFIX glfw
+    if(MSVC AND MSVC_STATIC_LINK)
+        set(GLFW_USE_MSVC_RUNTIME_LIBRARY_DLL "OFF")
+    else()
+        set(GLFW_USE_MSVC_RUNTIME_LIBRARY_DLL "ON")
+    endif()
+
+    ExternalProject_Add(glfw
+        PREFIX glfw
+
         GIT_REPOSITORY https://github.com/glfw/glfw.git
         GIT_TAG 3.3.7
 
@@ -20,6 +28,7 @@ else()
             "-DGLFW_BUILD_EXAMPLES=OFF"
             "-DGLFW_BUILD_TESTS=OFF"
             "-DGLFW_BUILD_DOCS=OFF"
+            "-DUSE_MSVC_RUNTIME_LIBRARY_DLL=${GLFW_USE_MSVC_RUNTIME_LIBRARY_DLL}"
 
         CMAKE_CACHE_ARGS
             "-DCMAKE_C_COMPILER:FILEPATH=${CMAKE_C_COMPILER}"
