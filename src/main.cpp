@@ -7,6 +7,8 @@
 
 #include "debug.h"
 #include "math/vec.h"
+#include "platform/thread.h"
+#include "platform/time.h"
 #include "sys/vulkan/device.h"
 #include "sys/vulkan/instance.h"
 #include "sys/vulkan/mem_buffer.h"
@@ -15,8 +17,12 @@
 #include "sys/vulkan/shaders.h"
 #include "sys/vulkan/surface.h"
 #include "sys/vulkan/swapchain.h"
-#include "util/time.h"
 #include "window.h"
+
+#undef min
+#undef max
+
+const uint64_t FRAME_OPTIMAL_TIME = (1000 * 1000) / 165;
 
 static uint64_t appStartMs;
 
@@ -40,7 +46,7 @@ struct LineVertex {
 
     LineVertex(Vec2 pos, Vec3 color) : pos(pos), color(color) {}
 
-    constexpr static VkVertexInputBindingDescription getBindingDescription() {
+    static VkVertexInputBindingDescription getBindingDescription() {
         VkVertexInputBindingDescription bindingDescription{};
         bindingDescription.binding = 0;
         bindingDescription.stride = sizeof(LineVertex);
@@ -49,7 +55,7 @@ struct LineVertex {
         return bindingDescription;
     }
 
-    constexpr static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
+    static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
         std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
 
         attributeDescriptions[0].binding = 0;
@@ -72,7 +78,7 @@ struct Vertex {
 
     Vertex(Vec2 pos, Vec3 color) : pos(pos), color(color) {}
 
-    constexpr static VkVertexInputBindingDescription getBindingDescription() {
+    static VkVertexInputBindingDescription getBindingDescription() {
         VkVertexInputBindingDescription bindingDescription{};
         bindingDescription.binding = 0;
         bindingDescription.stride = sizeof(Vertex);
@@ -81,7 +87,7 @@ struct Vertex {
         return bindingDescription;
     }
 
-    constexpr static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
+    static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
         std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
 
         attributeDescriptions[0].binding = 0;
@@ -143,6 +149,8 @@ class SolidObject {
 public:
     float x0, x1, y0, y1;
 
+    SolidObject() : x0(0.0f), x1(0.0f), y0(0.0f), y1(0.0f) {}
+
     SolidObject(float x0, float x1, float y0, float y1) {
         this->x0 = x0;
         this->x1 = x1;
@@ -155,6 +163,18 @@ public:
         bool yNotCollides = this->y1 < rhs.y0 || this->y0 > rhs.y1;
         return !xNotCollides && !yNotCollides;
     }
+
+    Vec2 pos0() const noexcept {
+        return {x0, y0};
+    }
+
+    Vec2 pos() const noexcept {
+        return {x1, y1};
+    }
+
+    Vec2 size() const noexcept {
+        return {x1 - x0, y1 - y0};
+    }
 };
 
 class World {
@@ -162,6 +182,7 @@ public:
     std::vector<SolidObject> objects{};
     bool playerOnGround = false;
 
+    float velX = 0.0f;
     float velY = 0.0f;
 
     World() {
@@ -170,22 +191,101 @@ public:
 
     void tick(float delta) {
         auto& player = objects[0];
+
         if (!playerOnGround) {
-            addVelocityY(-0.03f);
+            addVelocityY(-0.005f * delta);
+        }
+
+        for (auto i = objects.cbegin() + 1; i < objects.cend(); i++) {
+            if (velX == 0.0f && velY == 0.0f) {
+                continue;
+            }
+
+            Vec2 rayOrigin = (player.pos0() + player.pos()) * 0.5f;
+            Vec2 rayDirection = {velX * delta, velY * delta};
+
+            Vec2 objectSize = player.size();
+
+            SolidObject expanded = *i;
+            expanded.x0 -= objectSize.x / 2;
+            expanded.x1 += objectSize.x / 2;
+            expanded.y0 -= objectSize.y / 2;
+            expanded.y1 += objectSize.y / 2;
+
+            Vec2 contactPoint, contactNormal;
+            float t;
+            if (rayCast(expanded, rayOrigin, rayDirection, contactPoint, contactNormal, t) && t <= 1.0f) {
+                playerOnGround = true; // TODO: do resolving
+                velY = 0.0f;
+                velX = 0.0f;
+            }
+        }
+
+        if (!playerOnGround) {
             player.y0 += velY * delta;
             player.y1 += velY * delta;
         }
 
-        for (auto i = objects.cbegin() + 1; i < objects.cend(); i++) {
-            if (player.collides(*i)) {
-                playerOnGround = true;
-                velY = 0.0f;
-            }
+        player.x0 += velX * delta;
+        player.x1 += velX * delta;
+    }
+
+    bool rayCast(const SolidObject& object, Vec2 rayOrigin, Vec2 rayDir,
+                 Vec2& contactPoint, Vec2& contactNormal, float& tNear) {
+        Vec2 _pos0 = object.pos0();
+        Vec2 _pos = object.pos();
+        Vec2 pos0 = {_pos0.x - rayOrigin.x, _pos0.y - rayOrigin.y};
+        Vec2 pos = {_pos.x - rayOrigin.x, _pos.y - rayOrigin.y};
+
+        float nearY = pos0.x / rayDir.x;
+        float nearX = pos.y / rayDir.y;
+        float farY = pos.x / rayDir.x;
+        float farX = pos0.y / rayDir.y;
+
+        if (nearX > farX) {
+            std::swap(nearX, farX);
+        }
+        if (nearY > farY) {
+            std::swap(nearY, farY);
+        }
+
+        if (!(nearY < farX && nearX < farY)) {
+            return false;
+        }
+
+        tNear = std::max(nearX, nearY);
+        float tFar = std::min(farX, farY);
+
+        if (tFar < 0.0f) {
+            return false;
+        }
+
+        contactPoint.x = rayOrigin.x + tNear * rayDir.x;
+        contactPoint.y = rayOrigin.y + tNear * rayDir.y;
+
+        if (nearY >= nearX) {
+            contactNormal = rayDir.x < 0 ? Vec2(1.0f, 0.0f) : Vec2(-1.0f, 0.0f);
+        } else {
+            contactNormal = rayDir.y < 0 ? Vec2(0.0f, 1.0f) : Vec2(0.0f, -1.0f);
+        }
+
+        return true;
+    }
+
+    void addVelocityX(float val, float max) {
+        velX = std::clamp(this->velX + val, -max, max);
+    }
+
+    void slowDown(float val) {
+        if (velX < 0) {
+            velX = std::min(velX + val, 0.0f);
+        } else {
+            velX = std::max(velX - val, 0.0f);
         }
     }
 
     void addVelocityY(float val) {
-        const float VELOCITY_MAX = 3.0f;
+        const float VELOCITY_MAX = 5.0f;
         velY = std::clamp(this->velY + val, -VELOCITY_MAX, VELOCITY_MAX);
     }
 };
@@ -270,7 +370,7 @@ public:
         self.vertices = {};
 
         self.lines = {
-            LineVertex({-1.0f, -1.0f}, {0.0f, 0.0f, 1.0f}), //
+            LineVertex({}, {0.0f, 0.0f, 1.0f}), //
             LineVertex({}, {0.0f, 0.0f, 1.0f})};
 
         self.vertexBuffer1 = MemBuffer::createVertex(
@@ -342,6 +442,8 @@ public:
             Vec3 fillColor;
             if (i == 0) {
                 fillColor = {0.0f, 1.0f, 0.0f};
+                lines[0].pos.x = x0;
+                lines[0].pos.y = y1;
             } else {
                 fillColor = {0.0f, 0.0f, 0.0f};
             }
@@ -559,15 +661,15 @@ private:
             vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
         }
 
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline1.pipeline());
-
-        {
-            VkBuffer vertexBuffers[] = {vertexBuffer1.buffer()};
-            VkDeviceSize offsets[] = {0};
-            vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-        }
-
-        vkCmdDraw(commandBuffer, 2, 1, 0, 0);
+//        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline1.pipeline());
+//
+//        {
+//            VkBuffer vertexBuffers[] = {vertexBuffer1.buffer()};
+//            VkDeviceSize offsets[] = {0};
+//            vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+//        }
+//
+//        vkCmdDraw(commandBuffer, 2, 1, 0, 0);
 
         vkCmdEndRenderPass(commandBuffer);
 
@@ -577,220 +679,102 @@ private:
     }
 };
 
-int main() {
-    appStartMs = unixMs();
-
-    setupDebug();
-
-    printVulkanAvailableExtensions();
-
-    Window window = Window::create(800, 600, "Vulkan sample", true);
-
-    if (debugEnabled && !checkValidationLayerSupport()) {
-        throw std::runtime_error("validation layers requested, but not available!");
-    }
-
-    World world{};
-    world.objects.emplace_back(100, 900, 200, 250);
-    auto& player = world.objects[0];
-    player.y0 += 200;
-    player.y1 += 200;
-
-    GameRenderer renderer = GameRenderer::initialize(window);
-
-    bool aKeyPressed = false;
-    bool dKeyPressed = false;
-
-    float frameDelta = 0.0f;
-    while (!window.shouldClose()) {
-        uint64_t frameStart = unixMs();
-        glfwPollEvents();
-
-        bool wPressed = false;
-        for (const auto& event : window.keyEvents()) {
-            if (event.key == GLFW_KEY_A) {
-                if (event.action == GLFW_PRESS) {
-                    aKeyPressed = true;
-                } else if (event.action == GLFW_RELEASE) {
-                    aKeyPressed = false;
-                }
-            } else if (event.key == GLFW_KEY_D) {
-                if (event.action == GLFW_PRESS) {
-                    dKeyPressed = true;
-                } else if (event.action == GLFW_RELEASE) {
-                    dKeyPressed = false;
-                }
-            }
-
-            if (event.action == GLFW_PRESS && event.key == GLFW_KEY_W) {
-                wPressed = true;
-            }
-        }
-        window.keyEvents().clear();
-
-        //        auto pressedToString = [](bool pressed) {
-        //            return pressed ? "pressed" : "not pressed";
-        //        };
-        //        std::cout << "a: " << pressedToString(aKeyPressed) << std::endl;
-        //        std::cout << "d: " << pressedToString(dKeyPressed) << std::endl;
-        if (aKeyPressed && !dKeyPressed) {
-            player.x0 -= 2.0f;
-            player.x1 -= 2.0f;
-        } else if (!aKeyPressed && dKeyPressed) {
-            player.x0 += 2.0f;
-            player.x1 += 2.0f;
-        }
-
-        if (wPressed) {
-            world.velY = 2.2f;
-            world.playerOnGround = false;
-        }
-
-        world.tick(frameDelta);
-        renderer.render(world);
-
-        frameDelta = static_cast<float>(unixMs() - frameStart);
-    }
-
-    renderer.destroy();
-
-    window.destroy();
-
-    cleanup();
-
-    return EXIT_SUCCESS;
+bool isFrameOnTime(uint64_t frameTime, uint64_t optTime, uint64_t timeLimit) noexcept {
+    return frameTime < optTime && optTime - frameTime > timeLimit;
 }
 
-//#include <iostream>
-//#include <vector>
-//
-// class AABBRect {
-// public:
-//    double x0 = 0.0;
-//    double x1 = 0.0;
-//    double y0 = 0.0;
-//    double y1 = 0.0;
-//
-//    constexpr AABBRect() noexcept = default;
-//
-//    constexpr AABBRect(double x0, double x1, double y0, double y1) noexcept : x0(x0), x1(x1), y0(y0), y1(y1) {}
-//
-//    constexpr bool collides(const AABBRect& other) const noexcept {
-//        // actually to make this work, we need to assert that x0 <= x1 && y0 <= y1 is true for both
-//        bool xNotCollides = this->x1 < other.x0 || this->x0 > other.x1;
-//        bool yNotCollides = this->y1 < other.y0 || this->y0 > other.y1;
-//        return !xNotCollides && !yNotCollides;
-//    }
-//};
-//
-// class World {
-//
-//};
-//
-// class WorldRender {
-//    WorldRender() = default;
-//
-// public:
-//    virtual void render(const World& world) = 0;
-//};
-//
-// int main() {
-//
-//}
+int main() {
+    try {
+        appStartMs = unixUsecs();
 
-// class SolidObject {
-//     AABBRect hitbox;
-//
-// public:
-//     SolidObject(double x0, double x1, double y0, double y1) : hitbox({x0, x1, y0, y1}) {}
-//
-//     const AABBRect& getHitbox() const noexcept {
-//         return hitbox;
-//     }
-//
-//     AABBRect& getHitbox() noexcept {
-//         return hitbox;
-//     }
-// };
-//
-// class Player {
-//     AABBRect hitbox;
-//     bool onGround = false;
-//
-// public:
-//     Player() : hitbox({0.0, 0.0, 1.0, 1.0}) {}
-//
-//     const AABBRect& getHitbox() const noexcept {
-//         return hitbox;
-//     }
-//
-//     AABBRect& getHitbox() noexcept {
-//         return hitbox;
-//     }
-//
-//     bool isOnGround() const noexcept {
-//         return onGround;
-//     }
-//
-//     void setOnGround(bool val) noexcept {
-//         onGround = val;
-//     }
-//
-//     bool collides(const SolidObject& object) {
-//         return hitbox.collides(object.getHitbox());
-//     }
-// };
-//
-// class World {
-//     Player player;
-//     std::vector<SolidObject> objects;
-//
-// public:
-//     void tick() noexcept {
-//         if (!player.isOnGround()) {
-//             player.getHitbox().y0 -= 0.5;
-//             player.getHitbox().y1 -= 0.5;
-//         }
-//
-//         bool onGround = false;
-//         for (const auto& object : objects) {
-//             if (player.collides(object)) {
-//                 auto& playerHitbox = player.getHitbox();
-//                 double dY = playerHitbox.y1 - playerHitbox.y0;
-//                 playerHitbox.y1 = object.getHitbox().y0;
-//                 playerHitbox.y0 = playerHitbox.y1 - dY;
-//                 onGround = true;
-//             }
-//         }
-//         player.setOnGround(onGround);
-//     }
-//
-//     void spawnObject(SolidObject object) {
-//         objects.push_back(object);
-//     }
-//
-//     void setPlayerPos(double x, double y) noexcept {
-//         auto& hitbox = player.getHitbox();
-//         double dX = hitbox.x1 - hitbox.x0;
-//         double dY = hitbox.y1 - hitbox.y0;
-//         hitbox.x0 = x;
-//         hitbox.y0 = y;
-//         hitbox.x1 = x + dX;
-//         hitbox.y1 = y + dY;
-//     }
-//
-//     void printDebugInfo() const {
-//         std::cout << player.getHitbox().y0 << std::endl;
-//     }
-// };
-//
-// int main() {
-//     World world;
-//     world.spawnObject({5.0, 10.0, 5.0, 7.0});
-//     world.setPlayerPos(7.0, 30.3);
-//
-//     for (int i = 0; i < 100; i++) {
-//         world.tick();
-//         world.printDebugInfo();
-//     }
-// }
+        setupDebug();
+
+        printVulkanAvailableExtensions();
+
+        Window window = Window::create(800, 600, "Vulkan sample", true);
+
+        if (debugEnabled && !checkValidationLayerSupport()) {
+            throw std::runtime_error("validation layers requested, but not available!");
+        }
+
+        World world{};
+        world.objects.emplace_back(100, 900, 200, 250);
+        auto& player = world.objects[0];
+        player.y0 += 500;
+        player.y1 += 500;
+
+        GameRenderer renderer = GameRenderer::initialize(window);
+
+        bool aKeyPressed = false;
+        bool dKeyPressed = false;
+
+        uint64_t lFrameDelta = 0;
+        while (!window.shouldClose()) {
+            uint64_t frameStart = unixUsecs();
+            glfwPollEvents();
+
+            bool wPressed = false;
+            for (const auto& event : window.keyEvents()) {
+                if (event.key == GLFW_KEY_A) {
+                    if (event.action == GLFW_PRESS) {
+                        aKeyPressed = true;
+                    } else if (event.action == GLFW_RELEASE) {
+                        aKeyPressed = false;
+                    }
+                } else if (event.key == GLFW_KEY_D) {
+                    if (event.action == GLFW_PRESS) {
+                        dKeyPressed = true;
+                    } else if (event.action == GLFW_RELEASE) {
+                        dKeyPressed = false;
+                    }
+                }
+
+                if (event.action == GLFW_PRESS && event.key == GLFW_KEY_W) {
+                    wPressed = true;
+                }
+            }
+            window.keyEvents().clear();
+
+            float fFrameDelta = static_cast<float>(lFrameDelta) / 1000.0f;
+
+            if (aKeyPressed && !dKeyPressed) {
+                world.addVelocityX(-0.011f * fFrameDelta, 0.8f);
+            } else if (!aKeyPressed && dKeyPressed) {
+                world.addVelocityX(0.011f * fFrameDelta, 0.8f);
+            } else {
+                world.slowDown(0.011f);
+            }
+            if (wPressed) {
+                world.velY = 2.5f;
+                world.playerOnGround = false;
+            }
+
+            auto extent = window.getWindowExtent();
+            auto cursorX = 1000.0f / static_cast<float>(extent.width) * static_cast<float>(window.cursor().x);
+            auto cursorY = 1000.0f - 1000.0f / static_cast<float>(extent.height) * static_cast<float>(window.cursor().y);
+
+            world.tick(fFrameDelta);
+            renderer.render(world);
+
+            lFrameDelta = unixUsecs() - frameStart;
+
+            if (isFrameOnTime(lFrameDelta, FRAME_OPTIMAL_TIME, 500)) {
+                do {
+                    threadYield();
+                    lFrameDelta = unixUsecs() - frameStart;
+                } while (isFrameOnTime(lFrameDelta, FRAME_OPTIMAL_TIME, 500));
+            }
+        }
+
+        renderer.destroy();
+
+        window.destroy();
+
+        cleanup();
+
+        return EXIT_SUCCESS;
+    } catch (std::exception& exception) {
+        std::cout << exception.what() << std::endl;
+        return -1;
+    }
+}

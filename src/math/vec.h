@@ -1,9 +1,39 @@
 #pragma once
 
-struct Vec2 {
+class Vec2 {
+public:
     float x, y;
+
+    Vec2() : x(0.0f), y(0.0f) {}
+
+    Vec2(float x, float y) : x(x), y(y) {}
+
+    Vec2 operator+(const Vec2& rhs) const noexcept {
+        return {this->x + rhs.x, this->y + rhs.y};
+    }
+
+    Vec2 operator-() const noexcept {
+        return {-this->x, -this->y};
+    }
+
+    Vec2 operator-(const Vec2& rhs) const noexcept {
+        return *this + (-rhs);
+    }
+
+    Vec2 operator*(const float scalar) const noexcept {
+        return {this->x * scalar, this->y * scalar};
+    }
+
+    Vec2(const Vec2&) = default;
 };
 
-struct Vec3 {
+class Vec3 {
+public:
     float x, y, z;
+
+    Vec3() : x(0.0f), y(0.0f), z(0.0f) {}
+
+    Vec3(float x, float y, float z) : x(x), y(y), z(z) {}
+
+    Vec3(const Vec3&) = default;
 };
