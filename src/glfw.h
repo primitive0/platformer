@@ -1,10 +1,8 @@
 #pragma once
 
+#define GLFW_INCLUDE_NONE // to disable including opengl headers
 #define GLFW_INCLUDE_VULKAN
-
 #include <GLFW/glfw3.h>
-
-#undef GLFW_INCLUDE_VULKAN
 
 extern bool glfwInitialized;
 
