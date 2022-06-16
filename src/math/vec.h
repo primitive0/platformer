@@ -4,9 +4,9 @@ class Vec2 {
 public:
     float x, y;
 
-    Vec2() : x(0.0f), y(0.0f) {}
+    constexpr Vec2() : x(0.0f), y(0.0f) {}
 
-    Vec2(float x, float y) : x(x), y(y) {}
+    constexpr Vec2(float x, float y) : x(x), y(y) {}
 
     Vec2 operator+(const Vec2& rhs) const noexcept {
         return {this->x + rhs.x, this->y + rhs.y};
@@ -22,6 +22,22 @@ public:
 
     Vec2 operator*(const float scalar) const noexcept {
         return {this->x * scalar, this->y * scalar};
+    }
+
+    Vec2 operator/(const float scalar) const noexcept {
+        return {this->x / scalar, this->y / scalar};
+    }
+
+    bool operator==(const Vec2& rhs) const noexcept {
+        return this->x == rhs.x && this->y == rhs.y;
+    }
+
+    Vec2 onlyX() const noexcept {
+        return {x, 0.0f};
+    }
+
+    Vec2 onlyY() const noexcept {
+        return {0.0f, y};
     }
 
     Vec2(const Vec2&) = default;
