@@ -3,6 +3,9 @@
 #include "glfw.h"
 
 #include "debug.h"
+#include "game/AABB.h"
+#include "game/player.h"
+#include "game/world.h"
 #include "math/vec.h"
 #include "platform/thread.h"
 #include "platform/time.h"
@@ -14,10 +17,7 @@
 #include "sys/vulkan/shaders.h"
 #include "sys/vulkan/surface.h"
 #include "sys/vulkan/swapchain.h"
-#include "game/AABB.h"
-#include "game/player.h"
 #include "window.h"
-#include "world.h"
 
 struct LineVertex {
     Vec2 pos;
@@ -123,6 +123,7 @@ public:
     bool render(const World& world);
 
     void destroy();
+
 private:
     void recreateSwapChain();
 

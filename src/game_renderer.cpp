@@ -87,7 +87,8 @@ GameRenderer GameRenderer::initialize(Window window) {
 
     self.lines = {
         LineVertex({}, {0.0f, 0.0f, 1.0f}), //
-        LineVertex({}, {0.0f, 0.0f, 1.0f})};
+        LineVertex({}, {0.0f, 0.0f, 1.0f})  //
+    };
 
     self.vertexBuffer1 = MemBuffer::createVertex(
         self.physicalDevice.handle,
@@ -189,8 +190,6 @@ bool GameRenderer::render(const World& world) {
         vertices.push_back(x1y1);
         vertices.push_back(x0y1);
     }
-
-    std::cout << vertices.size() << std::endl;
 
     if (vertexBuffer.buffer() != VK_NULL_HANDLE) {
         vertexBuffer.destroy(device);

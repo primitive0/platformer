@@ -6,13 +6,13 @@
 #include "glfw.h"
 
 #include "debug.h"
+#include "game/world.h"
+#include "game_renderer.h"
 #include "math/vec.h"
 #include "platform/thread.h"
 #include "platform/time.h"
 #include "sys/vulkan/instance.h"
 #include "window.h"
-#include "game_renderer.h"
-#include "world.h"
 
 #undef min
 #undef max
@@ -104,9 +104,9 @@ int main() {
                 world.player.setOnGround(false);
             }
 
-//            auto extent = window.getWindowExtent();
-//            auto cursorX = 1000.0f / static_cast<float>(extent.width) * static_cast<float>(window.cursor().x);
-//            auto cursorY = 1000.0f - 1000.0f / static_cast<float>(extent.height) * static_cast<float>(window.cursor().y);
+            //            auto extent = window.getWindowExtent();
+            //            auto cursorX = 1000.0f / static_cast<float>(extent.width) * static_cast<float>(window.cursor().x);
+            //            auto cursorY = 1000.0f - 1000.0f / static_cast<float>(extent.height) * static_cast<float>(window.cursor().y);
 
             world.tick(fFrameDelta);
             renderer.render(world);
@@ -130,6 +130,6 @@ int main() {
         return EXIT_SUCCESS;
     } catch (std::exception& exception) {
         std::cout << exception.what() << std::endl;
-        return -1;
+        return EXIT_FAILURE;
     }
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "device.h"
+#include "swapchain.h"
 
 class RenderPass {
     VkRenderPass hRenderPass;
