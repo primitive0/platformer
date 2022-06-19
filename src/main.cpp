@@ -1,4 +1,3 @@
-#include <cmath>
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
@@ -8,16 +7,12 @@
 #include "debug.h"
 #include "game/world.h"
 #include "game_renderer.h"
-#include "math/vec.h"
-#include "platform/thread.h"
 #include "platform/time.h"
 #include "sys/vulkan/instance.h"
 #include "window.h"
 
 #undef min
 #undef max
-
-const uint64_t FRAME_OPTIMAL_TIME = (1000 * 1000) / 165;
 
 static uint64_t appStartMs;
 
@@ -33,10 +28,6 @@ void printVulkanAvailableExtensions() {
     for (const auto& extension : vkExtensions) {
         std::cout << '\t' << extension.extensionName << '\n';
     }
-}
-
-bool isFrameOnTime(uint64_t frameTime, uint64_t optTime, uint64_t timeLimit) noexcept {
-    return frameTime < optTime && optTime - frameTime > timeLimit;
 }
 
 int main() {
@@ -56,14 +47,22 @@ int main() {
         World world{};
         world.objects.emplace_back(100, 900, 200, 250);
         auto& player = world.player;
-        player.setPos(player.pos() + Vec2(0.0f, 500.0f));
+//        player.setPos(player.pos() + Vec2(0.0f, 500.0f));
+        player.pos() = {150.0f, 300.0f};
+
+        std::cout << "initializing renderer" << std::endl;
 
         GameRenderer renderer = GameRenderer::initialize(window);
+
+        std::cout << "renderer initialized" << std::endl;
 
         bool aKeyPressed = false;
         bool dKeyPressed = false;
 
         uint64_t lFrameDelta = 0;
+        uint64_t frameCount = 0;
+        uint64_t gameLoopStart = unixUsecs();
+        world.player.vel() = {0.8f, 2.5f};
         while (!window.shouldClose()) {
             uint64_t frameStart = unixUsecs();
             glfwPollEvents();
@@ -96,8 +95,8 @@ int main() {
                 world.addVelocityX(-0.011f * fFrameDelta, 0.8f);
             } else if (!aKeyPressed && dKeyPressed) {
                 world.addVelocityX(0.011f * fFrameDelta, 0.8f);
-            } else {
-                world.slowDown(0.011f);
+            } else if (world.player.isOnGround()) {
+                world.slowDown(0.005f * fFrameDelta);
             }
             if (wPressed) {
                 world.player.vel().y = 2.5f;
@@ -113,13 +112,12 @@ int main() {
 
             lFrameDelta = unixUsecs() - frameStart;
 
-            if (isFrameOnTime(lFrameDelta, FRAME_OPTIMAL_TIME, 500)) {
-                do {
-                    threadYield();
-                    lFrameDelta = unixUsecs() - frameStart;
-                } while (isFrameOnTime(lFrameDelta, FRAME_OPTIMAL_TIME, 500));
-            }
+//            std::cout << player.pos().x << " " << player.pos().y << std::endl;
+
+            frameCount++;
         }
+
+        std::cout << static_cast<double>(frameCount) / (static_cast<double>(unixUsecs() - gameLoopStart) / (1000.0 * 1000.0f)) << std::endl;
 
         renderer.destroy();
 
