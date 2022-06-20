@@ -3,10 +3,10 @@
 #include <algorithm>
 #include <vector>
 
-#include "game/AABB.h"
-#include "game/player.h"
-#include "game/raycast.h"
-#include "game/solid.h"
+#include "AABB.h"
+#include "player.h"
+#include "raycast.h"
+#include "solid.h"
 
 class World {
 public:
@@ -56,7 +56,7 @@ public:
         }
 
         player.pos() = player.pos() + vel * delta;
-        posLog.push_back(player.pos());
+//        posLog.push_back(player.pos());
     }
 
     void addVelocityX(float val, float max) {

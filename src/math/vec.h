@@ -4,9 +4,11 @@ class Vec2 {
 public:
     float x, y;
 
-    constexpr Vec2() : x(0.0f), y(0.0f) {}
-
     constexpr Vec2(float x, float y) : x(x), y(y) {}
+
+    constexpr Vec2();
+
+    constexpr Vec2(const Vec2&) = default;
 
     Vec2 operator+(const Vec2& rhs) const noexcept {
         return {this->x + rhs.x, this->y + rhs.y};
@@ -39,9 +41,11 @@ public:
     Vec2 onlyY() const noexcept {
         return {0.0f, y};
     }
-
-    Vec2(const Vec2&) = default;
 };
+
+inline constexpr Vec2 VEC2_ZEROED{0.0f, 0.0f};
+
+constexpr Vec2::Vec2() : Vec2(VEC2_ZEROED) {}
 
 class Vec3 {
 public:

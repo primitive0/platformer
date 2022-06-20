@@ -1,3 +1,4 @@
+#include <cmath>
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
@@ -52,8 +53,8 @@ int main() {
         World world{};
         world.objects.emplace_back(100, 900, 200, 250);
         auto& player = world.player;
-//        player.setPos(player.pos() + Vec2(0.0f, 500.0f));
         player.pos() = {150.0f, 300.0f};
+        world.player.vel() = {0.8f, 2.5f};
 
         std::cout << "initializing renderer" << std::endl;
 
@@ -67,7 +68,6 @@ int main() {
         uint64_t lFrameDelta = 0;
         uint64_t frameCount = 0;
         uint64_t gameLoopStart = unixUsecs();
-        world.player.vel() = {0.8f, 2.5f};
         while (!window.shouldClose()) {
             uint64_t frameStart = unixUsecs();
             glfwPollEvents();
@@ -86,6 +86,17 @@ int main() {
                     } else if (event.action == GLFW_RELEASE) {
                         dKeyPressed = false;
                     }
+                } else if (event.key == GLFW_KEY_X && event.action == GLFW_PRESS) {
+                    world = World{};
+                    world.objects.emplace_back(100, 900, 200, 250);
+                    player.pos() = {150.0f, 300.0f};
+                    world.player.vel() = {0.8f, 2.5f};
+                } else if (event.key == GLFW_KEY_1 && event.action == GLFW_PRESS) {
+                    player.vel() = {-0.8f, 2.5f};
+                    world.player.setOnGround(false);
+                } else if (event.key == GLFW_KEY_2 && event.action == GLFW_PRESS) {
+                    player.vel() = {0.8f, 2.5f};
+                    world.player.setOnGround(false);
                 }
 
                 if (event.action == GLFW_PRESS && event.key == GLFW_KEY_W) {
@@ -101,12 +112,18 @@ int main() {
                 world.player.setOnGround(false);
             }
 
+            if (player.vel() == VEC2_ZEROED) {
+                std::cout << "x: " << player.pos().x << "   y: " << player.pos().y << std::endl;
+                world = World{};
+                world.objects.emplace_back(100, 900, 200, 250);
+                player.pos() = {150.0f, 300.0f};
+                world.player.vel() = {0.8f, 2.5f};
+            }
+
             if (fFrameDelta > PHYSICS_SUBSTEP_DELTA_MAX) {
                 float fSubsteps = fFrameDelta / PHYSICS_SUBSTEP_DELTA_MAX;
-                float intSubsteps = trunc(fSubsteps);
+                float intSubsteps = std::trunc(fSubsteps);
                 float leftSubsteps = fSubsteps - intSubsteps;
-
-//                std::cout << intSubsteps << " " << leftSubsteps << std::endl;
 
                 auto iSubsteps = static_cast<uint32_t>(intSubsteps);
                 for (uint32_t i = 0; i < iSubsteps; i++) {
@@ -148,7 +165,7 @@ int main() {
 
             renderer.render(world);
 
-//            Sleep(180);
+            //            Sleep(180);
 
             lFrameDelta = unixUsecs() - frameStart;
             frameCount++;
