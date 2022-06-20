@@ -60,6 +60,8 @@ GameRenderer GameRenderer::initialize(Window window) {
     self.physicalDevice = findPhysicalDevice(self.instance, self.surface);
     self.device = Device::create(self.physicalDevice);
 
+    self._vkCmdDrawMultiIndexedExt = reinterpret_cast<PFN_vkCmdDrawMultiIndexedEXT>(vkGetDeviceProcAddr(self.device.getHandle(), "vkCmdDrawMultiIndexedEXT"));
+
     self.graphicsQueue = self.device.getDeviceQueue(self.physicalDevice.familyIndices.graphicsFamily);
     self.presentQueue = self.device.getDeviceQueue(self.physicalDevice.familyIndices.presentFamily);
 
@@ -85,18 +87,7 @@ GameRenderer GameRenderer::initialize(Window window) {
 
     self.vertices = {};
 
-    self.lines = {
-        LineVertex({}, {0.0f, 0.0f, 1.0f}), //
-        LineVertex({}, {0.0f, 0.0f, 1.0f})  //
-    };
-
-    self.vertexBuffer1 = MemBuffer::createVertex(
-        self.physicalDevice.handle,
-        self.device,
-        sizeof(LineVertex) * self.lines.size(),
-        MemBufferTransferDir::NONE,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-    );
+    self.lines = {};
 
     std::array<uint16_t, 6> indices = {0, 1, 2, 2, 3, 0};
 
@@ -209,17 +200,38 @@ bool GameRenderer::render(const World& world) {
         vertexBuffer.unmapMemory(device);
     }
 
-    auto extent = window.getWindowExtent();
-    auto x = 2.0f / static_cast<float>(extent.width) * static_cast<float>(window.cursor().x) - 1.0f;
-    auto y = 2.0f / static_cast<float>(extent.height) * static_cast<float>(window.cursor().y) - 1.0f;
+    lines.clear();
 
-    lines[1].pos.x = x;
-    lines[1].pos.y = y;
+    fillColor = {0.0f, 0.0f, 1.0f};
 
-    {
-        void* data = vertexBuffer1.mapMemory(device);
-        memcpy(data, lines.data(), static_cast<size_t>(vertexBuffer1.size()));
-        vertexBuffer1.unmapMemory(device);
+    for (const auto& pos : world.posLog) {
+        auto _x0 = static_cast<float>(pos.x);
+        auto _y0 = static_cast<float>(pos.y);
+
+        auto x0 = 2.0f / 1000.0f * _x0 - 1.0f;
+        auto y0 = 1.0f - 2.0f / 1000.0f * _y0;
+
+        lines.emplace_back(Vec2{x0, y0}, fillColor);
+    }
+
+    if (!lines.empty()) {
+        if (vertexBuffer1.buffer() != VK_NULL_HANDLE) {
+            vertexBuffer1.destroy(device);
+        }
+
+        vertexBuffer1 = MemBuffer::createVertex(
+            physicalDevice.handle,
+            device,
+            sizeof(LineVertex) * lines.size(),
+            MemBufferTransferDir::NONE,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+        );
+
+        {
+            void* data = vertexBuffer1.mapMemory(device);
+            memcpy(data, lines.data(), static_cast<size_t>(vertexBuffer1.size()));
+            vertexBuffer1.unmapMemory(device);
+        }
     }
 
 renderStart:
@@ -247,7 +259,7 @@ renderStart:
     device.resetFence(inFlightFence);
 
     vkResetCommandBuffer(commandBuffer, 0);
-    recordCommandBuffer(imageIndex, world.objects.size());
+    recordCommandBuffer(imageIndex, world.objects.size() + 1, world.posLog.size());
 
     VkSemaphore waitSemaphores[] = {imageAvailableSemaphore};
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
@@ -351,13 +363,13 @@ void GameRenderer::recreateSwapChain() {
 
         graphicsPipeline1 = GraphicsPipelineBuilder(device, shaders1, swapChain, renderPass)
                                 .withVertexInputStateInfo(vertexInputInfo)
-                                .withInputAssemblyStateInfo(createInputAssemblyStateInfo(VK_PRIMITIVE_TOPOLOGY_LINE_LIST))
+                                .withInputAssemblyStateInfo(createInputAssemblyStateInfo(VK_PRIMITIVE_TOPOLOGY_LINE_STRIP))
                                 .withRasterizerLineWidth(2.5f)
                                 .create();
     }
 }
 
-void GameRenderer::recordCommandBuffer(uint32_t imageIndex, size_t objectCount) {
+void GameRenderer::recordCommandBuffer(uint32_t imageIndex, size_t objectCount, size_t lineCount) {
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -384,7 +396,7 @@ void GameRenderer::recordCommandBuffer(uint32_t imageIndex, size_t objectCount) 
 
     vkCmdBindIndexBuffer(commandBuffer, indexBuffer.buffer(), 0, VK_INDEX_TYPE_UINT16);
 
-    for (int i = 0; i < objectCount + 1; i++) {
+    for (int i = 0; i < objectCount; i++) {
         VkBuffer vertexBuffers[] = {vertexBuffer.buffer()};
         VkDeviceSize offsets[] = {sizeof(Vertex) * 4 * i};
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
@@ -392,19 +404,47 @@ void GameRenderer::recordCommandBuffer(uint32_t imageIndex, size_t objectCount) 
         vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
     }
 
-    //        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline1.pipeline());
-    //
-    //        {
-    //            VkBuffer vertexBuffers[] = {vertexBuffer1.buffer()};
-    //            VkDeviceSize offsets[] = {0};
-    //            vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-    //        }
-    //
-    //        vkCmdDraw(commandBuffer, 2, 1, 0, 0);
+    {
+        VkBuffer vertexBuffers[] = {vertexBuffer.buffer()};
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+    }
+
+    std::vector<VkMultiDrawIndexedInfoEXT> draws{};
+    for (int i = 0; i < objectCount; i++) {
+        VkMultiDrawIndexedInfoEXT info{};
+        info.firstIndex = 0;
+        info.indexCount = 6;
+        info.vertexOffset = static_cast<int32_t>(sizeof(Vertex)) * 4 * i;
+        draws.push_back(info);
+    }
+    cmdDrawMultiIndexed(commandBuffer, draws.size(), draws.data(), 1, 0, 0, nullptr);
+
+    if (lineCount != 0) {
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline1.pipeline());
+
+        VkBuffer vertexBuffers[] = {vertexBuffer1.buffer()};
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+
+        vkCmdDraw(commandBuffer, lineCount, 1, 0, 0);
+    }
 
     vkCmdEndRenderPass(commandBuffer);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
         throw std::runtime_error("failed to record command buffer");
     }
+}
+
+void GameRenderer::cmdDrawMultiIndexed(
+    VkCommandBuffer commandBuffer, //
+    uint32_t drawCount,
+    const VkMultiDrawIndexedInfoEXT* pIndexInfo,
+    uint32_t instanceCount,
+    uint32_t firstInstance,
+    uint32_t stride,
+    const int32_t* pVertexOffset
+) {
+    _vkCmdDrawMultiIndexedExt(commandBuffer, drawCount, pIndexInfo, instanceCount, firstInstance, stride, pVertexOffset);
 }

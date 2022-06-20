@@ -12,6 +12,7 @@ class World {
 public:
     Player player;
     std::vector<Solid> objects{};
+    std::vector<Vec2> posLog{};
 
     World() {
         player.setPos(150, 350);
@@ -46,11 +47,16 @@ public:
             if (doRayCast2D(expanded, rayOrigin, rayDirection, contactPoint, contactNormal, t) && t <= 1.0f) {
                 player.vel().y = 0.0f;
                 player.setOnGround(true);
-                vel = vel * t;
+                if (contactNormal.x != 0.0f) {
+                    vel.x *= t;
+                } else {
+                    vel.y *= t;
+                }
             }
         }
 
         player.pos() = player.pos() + vel * delta;
+        posLog.push_back(player.pos());
     }
 
     void addVelocityX(float val, float max) {

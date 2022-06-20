@@ -14,6 +14,11 @@
 #undef min
 #undef max
 
+// TODO: refactor physics
+// TODO: add rendering fallback if multidraw is not available
+
+const float PHYSICS_SUBSTEP_DELTA_MAX = 0.24;
+
 static uint64_t appStartMs;
 
 void cleanup() {
@@ -91,32 +96,67 @@ int main() {
 
             float fFrameDelta = static_cast<float>(lFrameDelta) / 1000.0f;
 
-            if (aKeyPressed && !dKeyPressed) {
-                world.addVelocityX(-0.011f * fFrameDelta, 0.8f);
-            } else if (!aKeyPressed && dKeyPressed) {
-                world.addVelocityX(0.011f * fFrameDelta, 0.8f);
-            } else if (world.player.isOnGround()) {
-                world.slowDown(0.005f * fFrameDelta);
-            }
             if (wPressed) {
                 world.player.vel().y = 2.5f;
                 world.player.setOnGround(false);
+            }
+
+            if (fFrameDelta > PHYSICS_SUBSTEP_DELTA_MAX) {
+                float fSubsteps = fFrameDelta / PHYSICS_SUBSTEP_DELTA_MAX;
+                float intSubsteps = trunc(fSubsteps);
+                float leftSubsteps = fSubsteps - intSubsteps;
+
+//                std::cout << intSubsteps << " " << leftSubsteps << std::endl;
+
+                auto iSubsteps = static_cast<uint32_t>(intSubsteps);
+                for (uint32_t i = 0; i < iSubsteps; i++) {
+                    if (aKeyPressed && !dKeyPressed) {
+                        world.addVelocityX(-0.011f * PHYSICS_SUBSTEP_DELTA_MAX, 0.8f);
+                    } else if (!aKeyPressed && dKeyPressed) {
+                        world.addVelocityX(0.011f * PHYSICS_SUBSTEP_DELTA_MAX, 0.8f);
+                    } else if (world.player.isOnGround()) {
+                        world.slowDown(0.005f * PHYSICS_SUBSTEP_DELTA_MAX);
+                    }
+
+                    world.tick(PHYSICS_SUBSTEP_DELTA_MAX);
+                }
+
+                if (aKeyPressed && !dKeyPressed) {
+                    world.addVelocityX(-0.011f * leftSubsteps, 0.8f);
+                } else if (!aKeyPressed && dKeyPressed) {
+                    world.addVelocityX(0.011f * leftSubsteps, 0.8f);
+                } else if (world.player.isOnGround()) {
+                    world.slowDown(0.005f * leftSubsteps);
+                }
+
+                world.tick(leftSubsteps);
+            } else {
+                if (aKeyPressed && !dKeyPressed) {
+                    world.addVelocityX(-0.011f * fFrameDelta, 0.8f);
+                } else if (!aKeyPressed && dKeyPressed) {
+                    world.addVelocityX(0.011f * fFrameDelta, 0.8f);
+                } else if (world.player.isOnGround()) {
+                    world.slowDown(0.005f * fFrameDelta);
+                }
+
+                world.tick(fFrameDelta);
             }
 
             //            auto extent = window.getWindowExtent();
             //            auto cursorX = 1000.0f / static_cast<float>(extent.width) * static_cast<float>(window.cursor().x);
             //            auto cursorY = 1000.0f - 1000.0f / static_cast<float>(extent.height) * static_cast<float>(window.cursor().y);
 
-            world.tick(fFrameDelta);
             renderer.render(world);
 
+//            Sleep(180);
+
             lFrameDelta = unixUsecs() - frameStart;
-
-//            std::cout << player.pos().x << " " << player.pos().y << std::endl;
-
             frameCount++;
         }
 
+        std::cout << std::endl;
+
+        std::cout << player.pos().x << " " << player.pos().y << std::endl;
         std::cout << static_cast<double>(frameCount) / (static_cast<double>(unixUsecs() - gameLoopStart) / (1000.0 * 1000.0f)) << std::endl;
 
         renderer.destroy();

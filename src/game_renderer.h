@@ -91,6 +91,8 @@ class GameRenderer {
     PhysicalDevice physicalDevice;
     Device device;
 
+    PFN_vkCmdDrawMultiIndexedEXT _vkCmdDrawMultiIndexedExt;
+
     DeviceQueue graphicsQueue;
     DeviceQueue presentQueue;
 
@@ -127,5 +129,15 @@ public:
 private:
     void recreateSwapChain();
 
-    void recordCommandBuffer(uint32_t imageIndex, size_t objectCount);
+    void recordCommandBuffer(uint32_t imageIndex, size_t objectCount, size_t lineCount);
+
+    void cmdDrawMultiIndexed(
+        VkCommandBuffer commandBuffer, //
+        uint32_t drawCount,
+        const VkMultiDrawIndexedInfoEXT* pIndexInfo,
+        uint32_t instanceCount,
+        uint32_t firstInstance,
+        uint32_t stride,
+        const int32_t* pVertexOffset
+    );
 };

@@ -45,8 +45,7 @@ inline std::vector<VkExtensionProperties> enumerateDeviceExtensionProperties(VkP
     return extensionProperties;
 }
 
-inline bool checkDeviceExtensionSupport(VkPhysicalDevice device) {
-    auto availableExtensions = enumerateDeviceExtensionProperties(device);
+inline bool checkDeviceExtensionSupport(const std::vector<VkExtensionProperties>& availableExtensions) {
     for (const auto& requiredExtension : DEVICE_EXTENSIONS) {
         bool extensionFound = false;
         for (const auto& extension : availableExtensions) {
@@ -127,13 +126,18 @@ inline PhysicalDevice findPhysicalDevice(VkInstance instance, VkSurfaceKHR surfa
             vkGetPhysicalDeviceProperties(device, &deviceProperties);
             vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 
-            // TODO: print about all available features
+            std::cout << "found device: " << deviceProperties.deviceName << std::endl;
 
             if (!(deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU && deviceFeatures.geometryShader)) {
                 continue;
             }
 
-            if (!checkDeviceExtensionSupport(device)) {
+            auto availableExtensions = enumerateDeviceExtensionProperties(device);
+            for (const auto& extension : availableExtensions) {
+                std::cout << "device has this extension: " << extension.extensionName << std::endl;
+            }
+
+            if (!checkDeviceExtensionSupport(availableExtensions)) {
                 continue;
             }
 

@@ -39,6 +39,7 @@ inline VkInstance createVulkanInstance(const VulkanApplicationInfo& info, const 
     createInfo.pApplicationInfo = &appInfo;
 
     auto requiredExtensions = window.getRequiredVulkanExtensions();
+    requiredExtensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
     createInfo.enabledExtensionCount = static_cast<uint32_t>(requiredExtensions.size());
     createInfo.ppEnabledExtensionNames = requiredExtensions.data();
 

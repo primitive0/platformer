@@ -25,6 +25,16 @@ public:
         VkPhysicalDeviceFeatures deviceFeatures{};
         deviceFeatures.wideLines = true; // TODO: check for availability
 
+        VkPhysicalDeviceMultiDrawFeaturesEXT multiDrawFeatures{};
+        multiDrawFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTI_DRAW_FEATURES_EXT;
+        multiDrawFeatures.multiDraw = VK_TRUE;
+        multiDrawFeatures.pNext = nullptr;
+
+        VkPhysicalDeviceFeatures2 deviceFeatures2{};
+        deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+        deviceFeatures2.features = deviceFeatures;
+        deviceFeatures2.pNext = &multiDrawFeatures;
+
         VkDeviceCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 
@@ -39,10 +49,12 @@ public:
         }
         createInfo.pQueueCreateInfos = queueCreateInfos;
 
-        createInfo.pEnabledFeatures = &deviceFeatures;
+        createInfo.pEnabledFeatures = nullptr;
 
         createInfo.enabledExtensionCount = static_cast<uint32_t>(DEVICE_EXTENSIONS.size());
         createInfo.ppEnabledExtensionNames = DEVICE_EXTENSIONS.data();
+
+        createInfo.pNext = &deviceFeatures2;
 
         VkDevice device = VK_NULL_HANDLE;
         if (vkCreateDevice(physicalDevice.handle, &createInfo, nullptr, &device) == VK_SUCCESS) {
