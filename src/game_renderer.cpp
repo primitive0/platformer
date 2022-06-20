@@ -396,14 +396,6 @@ void GameRenderer::recordCommandBuffer(uint32_t imageIndex, size_t objectCount, 
 
     vkCmdBindIndexBuffer(commandBuffer, indexBuffer.buffer(), 0, VK_INDEX_TYPE_UINT16);
 
-    for (int i = 0; i < objectCount; i++) {
-        VkBuffer vertexBuffers[] = {vertexBuffer.buffer()};
-        VkDeviceSize offsets[] = {sizeof(Vertex) * 4 * i};
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-
-        vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
-    }
-
     {
         VkBuffer vertexBuffers[] = {vertexBuffer.buffer()};
         VkDeviceSize offsets[] = {0};
@@ -415,10 +407,10 @@ void GameRenderer::recordCommandBuffer(uint32_t imageIndex, size_t objectCount, 
         VkMultiDrawIndexedInfoEXT info{};
         info.firstIndex = 0;
         info.indexCount = 6;
-        info.vertexOffset = static_cast<int32_t>(sizeof(Vertex)) * 4 * i;
+        info.vertexOffset = 4 * i;
         draws.push_back(info);
     }
-    cmdDrawMultiIndexed(commandBuffer, draws.size(), draws.data(), 1, 0, 0, nullptr);
+    cmdDrawMultiIndexed(commandBuffer, draws.size(), draws.data(), 1, 0, sizeof(VkMultiDrawIndexedInfoEXT), nullptr);
 
     if (lineCount != 0) {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline1.pipeline());
