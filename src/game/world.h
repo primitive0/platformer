@@ -12,16 +12,16 @@ class World {
 public:
     Player player;
     std::vector<Solid> objects{};
-    std::vector<Vec2> posLog{};
 
     World() {
-        player.setPos(150, 300);
+        player.setPos(0.0f, 0.0f);
     }
 
     void tick(float delta) {
-        if (!player.isOnGround()) {
-            addVelocityY(-0.005f * delta);
-        }
+        // TODO: maybe optimize collision checking if on ground
+//        if (!player.isOnGround()) {
+        addVelocityY(-0.005f * delta);
+//        }
 
         if (player.vel() == Vec2(0.0f, 0.0f)) {
             return;
@@ -45,18 +45,19 @@ public:
             Vec2 contactPoint, contactNormal;
             float t;
             if (doRayCast2D(expanded, rayOrigin, rayDirection, contactPoint, contactNormal, t) && t <= 1.0f) {
-                player.vel().y = 0.0f;
-                player.setOnGround(true);
                 if (contactNormal.x != 0.0f) {
                     vel.x *= t;
                 } else {
+                    if (contactNormal.y == 1.0f) {
+                        player.setOnGround(true);
+                        player.vel().y = 0.0f;
+                    }
                     vel.y *= t;
                 }
             }
         }
 
         player.pos() = player.pos() + vel * delta;
-//        posLog.push_back(player.pos());
     }
 
     void addVelocityX(float val, float max) {

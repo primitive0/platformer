@@ -4,12 +4,13 @@
 
 Game::Game() {
     world.objects.emplace_back(100, 900, 200, 250);
-    world.player.vel() = {0.8f, 2.5f};
+    world.player.setPos(150, 300);
+//    world.player.vel() = {0.8f, 2.5f};
 }
 
 void Game::process(float delta) {
     if (delta > PHYSICS_SUBSTEP_DELTA_MAX) {
-        float fSubsteps = delta / PHYSICS_SUBSTEP_DELTA_MAX;
+        float fSubsteps = delta / PHYSICS_SUBSTEP_DELTA_MAX; // TODO: better variable names
         float intSubsteps = std::trunc(fSubsteps);
         float leftSubsteps = fSubsteps - intSubsteps;
 

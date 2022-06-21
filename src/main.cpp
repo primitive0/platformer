@@ -93,17 +93,17 @@ int main() {
 
             float fFrameDelta = static_cast<float>(lFrameDelta) / 1000.0f;
 
-            if (player.vel() == VEC2_ZEROED) {
-                std::cout << "time passed: " << static_cast<float>((unixUsecs() - gameStart) / 1000) / 1000.0f << std::endl;
-                double fps = static_cast<double>(frameCount) / (static_cast<double>(unixUsecs() - gameLoopStart) / (1000.0 * 1000.0f));
-                std::cout << "avg fps: " << fps << std::endl;
-                std::cout << "avg frame delta: " << static_cast<double>(frameDeltas) / static_cast<double>(frameCount) << std::endl;
-                gameStart = unixUsecs();
-                gameLoopStart = unixUsecs();
-                frameCount = 0;
-                frameDeltas = 0.0f;
-                game = Game{};
-            }
+//            if (player.vel() == VEC2_ZEROED) {
+//                std::cout << "time passed: " << static_cast<float>((unixUsecs() - gameStart) / 1000) / 1000.0f << std::endl;
+//                double fps = static_cast<double>(frameCount) / (static_cast<double>(unixUsecs() - gameLoopStart) / (1000.0 * 1000.0f));
+//                std::cout << "avg fps: " << fps << std::endl;
+//                std::cout << "avg frame delta: " << static_cast<double>(frameDeltas) / static_cast<double>(frameCount) << std::endl;
+//                gameStart = unixUsecs();
+//                gameLoopStart = unixUsecs();
+//                frameCount = 0;
+//                frameDeltas = 0.0f;
+//                game = Game{};
+//            }
 
             if (wPressed) {
                 game.playerJump();

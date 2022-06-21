@@ -202,17 +202,17 @@ bool GameRenderer::render(const World& world) {
 
     lines.clear();
 
-    fillColor = {0.0f, 0.0f, 1.0f};
+//    fillColor = {0.0f, 0.0f, 1.0f};
 
-    for (const auto& pos : world.posLog) {
-        auto _x0 = static_cast<float>(pos.x);
-        auto _y0 = static_cast<float>(pos.y);
-
-        auto x0 = 2.0f / 1000.0f * _x0 - 1.0f;
-        auto y0 = 1.0f - 2.0f / 1000.0f * _y0;
-
-        lines.emplace_back(Vec2{x0, y0}, fillColor);
-    }
+//    for (const auto& pos : world.posLog) {
+//        auto _x0 = static_cast<float>(pos.x);
+//        auto _y0 = static_cast<float>(pos.y);
+//
+//        auto x0 = 2.0f / 1000.0f * _x0 - 1.0f;
+//        auto y0 = 1.0f - 2.0f / 1000.0f * _y0;
+//
+//        lines.emplace_back(Vec2{x0, y0}, fillColor);
+//    }
 
     if (!lines.empty()) {
         if (vertexBuffer1.buffer() != VK_NULL_HANDLE) {
@@ -259,7 +259,7 @@ renderStart:
     device.resetFence(inFlightFence);
 
     vkResetCommandBuffer(commandBuffer, 0);
-    recordCommandBuffer(imageIndex, world.objects.size() + 1, world.posLog.size());
+    recordCommandBuffer(imageIndex, world.objects.size() + 1, 0);
 
     VkSemaphore waitSemaphores[] = {imageAvailableSemaphore};
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
