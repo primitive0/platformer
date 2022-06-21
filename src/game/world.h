@@ -15,7 +15,7 @@ public:
     std::vector<Vec2> posLog{};
 
     World() {
-        player.setPos(150, 350);
+        player.setPos(150, 300);
     }
 
     void tick(float delta) {
