@@ -1,5 +1,7 @@
 #pragma once
 
+#include "world.h"
+
 const float PHYSICS_SUBSTEP_DELTA_MAX = 0.24;
 
 struct Game {
@@ -7,40 +9,11 @@ struct Game {
     bool moveLeft = false;
     bool moveRight = false;
 
-    Game() {
-        world.objects.emplace_back(100, 900, 200, 250);
-        world.player.vel() = {0.8f, 2.5f};
-    }
+    Game();
 
-    void process(float delta) {
-        if (delta > PHYSICS_SUBSTEP_DELTA_MAX) {
-            float fSubsteps = delta / PHYSICS_SUBSTEP_DELTA_MAX;
-            float intSubsteps = std::trunc(fSubsteps);
-            float leftSubsteps = fSubsteps - intSubsteps;
+    void process(float delta);
 
-            for (uint32_t i = 0; i < static_cast<uint32_t>(intSubsteps); i++) {
-                process_(PHYSICS_SUBSTEP_DELTA_MAX);
-            }
-            process_(leftSubsteps * PHYSICS_SUBSTEP_DELTA_MAX);
-        } else {
-            process_(delta);
-        }
-    }
+    void process_(float delta);
 
-    void process_(float delta) {
-        if (moveLeft && !moveRight) {
-            world.addVelocityX(-0.011f * delta, 0.8f);
-        } else if (!moveLeft && moveRight) {
-            world.addVelocityX(0.011f * delta, 0.8f);
-        } else if (world.player.isOnGround()) {
-            world.slowDown(0.005f * delta);
-        }
-
-        world.tick(delta);
-    }
-
-    void playerJump() {
-        world.player.vel().y = 2.5f;
-        world.player.setOnGround(false);
-    }
+    void playerJump();
 };

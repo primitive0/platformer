@@ -6,7 +6,6 @@
 #include "glfw.h"
 
 #include "debug.h"
-#include "game/world.h"
 #include "game/game.h"
 #include "game_renderer.h"
 #include "platform/time.h"
@@ -63,7 +62,7 @@ int main() {
         uint64_t gameLoopStart = unixUsecs();
         uint64_t gameStart = gameLoopStart;
         float frameDeltas = 0.0f;
-//        uint32_t substeps = 0;
+        //        uint32_t substeps = 0;
         while (!window.shouldClose()) {
             uint64_t frameStart = unixUsecs();
             glfwPollEvents();
