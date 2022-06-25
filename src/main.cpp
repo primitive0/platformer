@@ -1,4 +1,3 @@
-#include <cmath>
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
@@ -60,9 +59,8 @@ int main() {
         uint64_t lFrameDelta = 0;
         uint64_t frameCount = 0;
         uint64_t gameLoopStart = unixUsecs();
-        uint64_t gameStart = gameLoopStart;
+//        uint64_t gameStart = gameLoopStart;
         float frameDeltas = 0.0f;
-        //        uint32_t substeps = 0;
         while (!window.shouldClose()) {
             uint64_t frameStart = unixUsecs();
             glfwPollEvents();
@@ -94,10 +92,12 @@ int main() {
             float fFrameDelta = static_cast<float>(lFrameDelta) / 1000.0f;
 
 //            if (player.vel() == VEC2_ZEROED) {
-//                std::cout << "time passed: " << static_cast<float>((unixUsecs() - gameStart) / 1000) / 1000.0f << std::endl;
+//                std::cout << "x: " << player.pos().x << " y: " << player.pos().y << std::endl;
+////                std::cout << "time passed: " << static_cast<float>((unixUsecs() - gameStart) / 1000) / 1000.0f << std::endl;
 //                double fps = static_cast<double>(frameCount) / (static_cast<double>(unixUsecs() - gameLoopStart) / (1000.0 * 1000.0f));
 //                std::cout << "avg fps: " << fps << std::endl;
-//                std::cout << "avg frame delta: " << static_cast<double>(frameDeltas) / static_cast<double>(frameCount) << std::endl;
+////                std::cout << "avg frame delta: " << static_cast<double>(frameDeltas) / static_cast<double>(frameCount) << std::endl;
+//
 //                gameStart = unixUsecs();
 //                gameLoopStart = unixUsecs();
 //                frameCount = 0;
@@ -119,9 +119,6 @@ int main() {
             lFrameDelta = unixUsecs() - frameStart;
             frameCount++;
         }
-
-        std::cout << player.pos().x << " " << player.pos().y << std::endl;
-        std::cout << static_cast<double>(frameCount) / (static_cast<double>(unixUsecs() - gameLoopStart) / (1000.0 * 1000.0f)) << std::endl;
 
         renderer.destroy();
 

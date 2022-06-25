@@ -1,8 +1,10 @@
 #pragma once
 
+#include <cstdint>
+
 #include "world.h"
 
-const float PHYSICS_SUBSTEP_DELTA_MAX = 0.24;
+const float PHYSICS_SUBSTEP_DELTA_MAX = 0.24f;
 
 struct Game {
     World world{};

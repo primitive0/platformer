@@ -10,14 +10,13 @@ Game::Game() {
 
 void Game::process(float delta) {
     if (delta > PHYSICS_SUBSTEP_DELTA_MAX) {
-        float fSubsteps = delta / PHYSICS_SUBSTEP_DELTA_MAX; // TODO: better variable names
-        float intSubsteps = std::trunc(fSubsteps);
-        float leftSubsteps = fSubsteps - intSubsteps;
+        float substeps = std::trunc(delta / PHYSICS_SUBSTEP_DELTA_MAX); // TODO: maybe replace with multiplication
+        float leftDelta = delta - substeps * PHYSICS_SUBSTEP_DELTA_MAX;
 
-        for (uint32_t i = 0; i < static_cast<uint32_t>(intSubsteps); i++) {
+        for (uint32_t i = 0; i < static_cast<uint32_t>(substeps); i++) {
             process_(PHYSICS_SUBSTEP_DELTA_MAX);
         }
-        process_(leftSubsteps * PHYSICS_SUBSTEP_DELTA_MAX);
+        process_(leftDelta);
     } else {
         process_(delta);
     }
