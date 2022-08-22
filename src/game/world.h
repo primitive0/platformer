@@ -29,14 +29,14 @@ public:
 
         Vec2 vel = player.vel();
 
-        for (auto i = objects.cbegin(); i < objects.cend(); i++) {
+        for (const auto& object : objects) {
             auto playerAABB = player.aabb();
             Vec2 rayOrigin = (playerAABB.v0() + playerAABB.v1()) * 0.5f;
             Vec2 rayDirection = {player.vel().x * delta, player.vel().y * delta};
 
             Vec2 objectSize = playerAABB.size();
 
-            Solid expanded = *i;
+            AABB expanded = object.aabb();
             expanded.v0().x -= objectSize.x / 2;
             expanded.v1().x += objectSize.x / 2;
             expanded.v0().y -= objectSize.y / 2;

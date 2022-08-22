@@ -19,45 +19,13 @@
 #include "sys/vulkan/swapchain.h"
 #include "window.h"
 
-struct LineVertex {
-    Vec2 pos;
-    Vec3 color;
-
-    LineVertex(Vec2 pos, Vec3 color) : pos(pos), color(color) {}
-
-    static VkVertexInputBindingDescription getBindingDescription() {
-        VkVertexInputBindingDescription bindingDescription{};
-        bindingDescription.binding = 0;
-        bindingDescription.stride = sizeof(LineVertex);
-        bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-        return bindingDescription;
-    }
-
-    static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
-        std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
-
-        attributeDescriptions[0].binding = 0;
-        attributeDescriptions[0].location = 0;
-        attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
-        attributeDescriptions[0].offset = offsetof(LineVertex, pos);
-
-        attributeDescriptions[1].binding = 0;
-        attributeDescriptions[1].location = 1;
-        attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-        attributeDescriptions[1].offset = offsetof(LineVertex, color);
-
-        return attributeDescriptions;
-    }
-};
-
 struct Vertex {
     Vec2 pos;
     Vec3 color;
 
     Vertex(Vec2 pos, Vec3 color) : pos(pos), color(color) {}
 
-    static VkVertexInputBindingDescription getBindingDescription() {
+    static constexpr VkVertexInputBindingDescription getBindingDescription() {
         VkVertexInputBindingDescription bindingDescription{};
         bindingDescription.binding = 0;
         bindingDescription.stride = sizeof(Vertex);
@@ -66,7 +34,7 @@ struct Vertex {
         return bindingDescription;
     }
 
-    static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
+    static constexpr std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
         std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
 
         attributeDescriptions[0].binding = 0;
@@ -107,8 +75,7 @@ class GameRenderer {
     VkFence inFlightFence;
 
     std::vector<Vertex> vertices;
-
-    std::vector<LineVertex> lines;
+    std::vector<Vertex> lines;
 
     MemBuffer vertexBuffer1;
     MemBuffer vertexBuffer;

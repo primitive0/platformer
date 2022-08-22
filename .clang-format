@@ -9,3 +9,4 @@ AccessModifierOffset: -4
 AllowShortFunctionsOnASingleLine: Empty
 AllowShortEnumsOnASingleLine: false
 AllowShortLambdasOnASingleLine: Empty
+AlwaysBreakTemplateDeclarations: Yes

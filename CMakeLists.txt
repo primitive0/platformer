@@ -30,6 +30,10 @@ target_include_directories(MyTarget
         PUBLIC ${GLFW_INCLUDE_DIR}
         PUBLIC ${Vulkan_INCLUDE_DIRS})
 
+target_include_directories(MyTarget
+        PUBLIC "${PROJECT_SOURCE_DIR}/include"
+)
+
 target_link_libraries(MyTarget
         PUBLIC ${Vulkan_LIBRARIES}
         PUBLIC ${GLFW_LIBRARIES})

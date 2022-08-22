@@ -4,11 +4,9 @@
 
 #include "solid.h"
 
-inline bool doRayCast2D(const Solid& object, Vec2 rayOrigin, Vec2 rayDir, Vec2& contactPoint, Vec2& contactNormal, float& tNear) noexcept {
-    Vec2 pos0 = object.aabb().v0();
-    Vec2 pos = object.aabb().v1();
-    pos0 = pos0 - rayOrigin;
-    pos = pos - rayOrigin;
+inline bool doRayCast2D(const AABB& object, Vec2 rayOrigin, Vec2 rayDir, Vec2& contactPoint, Vec2& contactNormal, float& tNear) noexcept {
+    Vec2 pos0 = object.v0() - rayOrigin;
+    Vec2 pos = object.v1() - rayOrigin;
 
     float nearY = pos0.x / rayDir.x;
     float nearX = pos.y / rayDir.y;

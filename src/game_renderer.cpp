@@ -222,7 +222,7 @@ bool GameRenderer::render(const World& world) {
         vertexBuffer1 = MemBuffer::createVertex(
             physicalDevice.handle,
             device,
-            sizeof(LineVertex) * lines.size(),
+            sizeof(Vertex) * lines.size(),
             MemBufferTransferDir::NONE,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
         );
@@ -352,8 +352,8 @@ void GameRenderer::recreateSwapChain() {
     }
 
     {
-        auto bindingDescription = LineVertex::getBindingDescription();
-        auto attributeDescriptions = LineVertex::getAttributeDescriptions();
+        auto bindingDescription = Vertex::getBindingDescription();
+        auto attributeDescriptions = Vertex::getAttributeDescriptions();
         VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
         vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
         vertexInputInfo.vertexBindingDescriptionCount = 1;

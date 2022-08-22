@@ -24,7 +24,7 @@ public:
     double cursorPosY = 0.0;
 
     void emitKeyPress(int key, int scancode, int action, int mods) {
-        if (keyPressEvents.size() > 50) {
+        if (keyPressEvents.size() > 50) { // TODO: fix
             return;
         }
         keyPressEvents.emplace_back(key, scancode, action, mods);
@@ -59,7 +59,7 @@ class Window {
 public:
     Window() : handle(nullptr), data(nullptr) {}
 
-    Window(const Window& window) = default;
+    Window(const Window&) = default;
 
     Window(GLFWwindow* handle, WindowData* data) noexcept : handle(handle), data(data) {}
 
@@ -130,5 +130,13 @@ public:
         const char** pExtensions = glfwGetRequiredInstanceExtensions(&count);
         std::vector<const char*> extensions(pExtensions, pExtensions + count);
         return extensions;
+    }
+
+    VkSurfaceKHR createVkSurface(VkInstance vkInstance) const {
+        VkSurfaceKHR surface = VK_NULL_HANDLE;
+        if (glfwCreateWindowSurface(vkInstance, handle, nullptr, &surface) != VK_SUCCESS || surface == VK_NULL_HANDLE) {
+            throw std::runtime_error("failed to create vulkan surface");
+        }
+        return surface;
     }
 };
